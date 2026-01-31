@@ -37,17 +37,20 @@ export default function Header() {
 
                 <div className="flex items-center gap-4">
                     {session ? (
-                        <Link href="/profile" className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-full transition-colors">
-                            {session.user?.image ? (
-                                <img src={session.user.image} alt="User" className="w-8 h-8 rounded-full" />
-                            ) : (
-                                <div className="w-8 h-8 bg-green-100 text-green-700 rounded-full flex items-center justify-center font-bold">
-                                    {session.user?.name?.[0]}
-                                </div>
-                            )}
-                            <span className="font-medium text-sm hidden sm:block">{session.user?.name}</span>
-                        </Link>
-
+                        <div className="flex items-center gap-4">
+                            <div className="text-sm text-gray-700 hidden sm:block">
+                                {session.user?.image && (
+                                    <img src={session.user.image} alt="User" className="w-8 h-8 rounded-full inline-block mr-2" />
+                                )}
+                                {session.user?.name}
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => {
+                                localStorage.removeItem('optimeal_user_id');
+                                signOut();
+                            }}>
+                                Sign Out
+                            </Button>
+                        </div>
                     ) : (
                         <Button size="sm" onClick={() => signIn('google')}>
                             Login with Google
@@ -55,6 +58,6 @@ export default function Header() {
                     )}
                 </div>
             </div>
-        </header >
+        </header>
     );
 }
