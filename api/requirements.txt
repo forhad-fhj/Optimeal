@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+sqlalchemy
+asyncpg
+pydantic
+pydantic[email]
+email-validator
+# geo libraries
+postgis
+psycopg2-binary
+geoalchemy2
+networkx
+greenlet
+python-multipart
