@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import users, listings, routes, deliveries, auth
+from routers import users, auth
 
 app = FastAPI(title="OptiMeal API")
 
@@ -13,9 +13,6 @@ app.add_middleware(
 )
 
 app.include_router(users.router)
-app.include_router(listings.router)
-app.include_router(routes.router)
-app.include_router(deliveries.router)
 app.include_router(auth.router)
 
 @app.get("/")

@@ -18,7 +18,6 @@ class UserUpdate(BaseModel):
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
-    # UUID check skipped for brevity, assumed valid UUID string
     try:
         stmt = select(User).where(User.id == user_id)
         result = await db.execute(stmt)
@@ -27,7 +26,9 @@ async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
             raise HTTPException(status_code=404, detail="User not found")
         return user
     except Exception as e:
-         raise HTTPException(status_code=400, detail="Invalid ID format")
+         # Log error here if possible
+         print(f"Error getting user: {e}")
+         raise HTTPException(status_code=400, detail="Invalid ID or User Not Found")
 
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(user_id: str, diff: UserUpdate, db: AsyncSession = Depends(get_db)):
@@ -38,17 +39,23 @@ async def update_user(user_id: str, diff: UserUpdate, db: AsyncSession = Depends
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if diff.name:
+    if diff.name is not None:
         user.name = diff.name
-    if diff.role:
-        user.role = diff.role
-    if diff.phone:
+    if diff.role is not None:
+        # Ensure lowercase for enum alignment
+        user.role = diff.role.lower()
+    if diff.phone is not None:
         user.phone = diff.phone
     if diff.location_lat is not None:
         user.location_lat = diff.location_lat
     if diff.location_lng is not None:
         user.location_lng = diff.location_lng
     
-    await db.commit()
-    await db.refresh(user)
+    try:
+        await db.commit()
+        await db.refresh(user)
+    except Exception as e:
+        print(f"Update failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Database update failed: {str(e)}")
+        
     return user
