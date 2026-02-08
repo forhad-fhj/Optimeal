@@ -22,16 +22,13 @@ export default function ProfilePage() {
             // If no ID but session exists (sync race condition), try to sync manually or wait
             if (!userId && session?.user?.email) {
                 try {
-                    const getSync = await fetcher('/api/auth/sync', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            email: session.user.email,
-                            name: session.user.name || 'Unknown',
-                            image_url: session.user.image,
-                            provider: 'google',
-                            provider_id: 'google'
-                        })
-                    }); // Helper to just trigger sync endpoint
+                    const getSync = await postData('/api/auth/sync', {
+                        email: session.user.email,
+                        name: session.user.name || 'Unknown',
+                        image_url: session.user.image,
+                        provider: 'google',
+                        provider_id: 'google'
+                    });
                     userId = getSync.id;
                     localStorage.setItem('optimeal_user_id', userId!);
                 } catch (e) {
