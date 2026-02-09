@@ -32,6 +32,9 @@ export default function Header() {
                         <Link href="/charity" className={`text-sm font-medium transition-colors ${isActive('/charity')}`}>
                             Charity
                         </Link>
+                        <Link href="/admin" className={`text-sm font-medium transition-colors ${isActive('/admin')}`}>
+                            Admin
+                        </Link>
                     </nav>
                 </div>
 

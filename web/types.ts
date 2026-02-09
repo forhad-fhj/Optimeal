@@ -289,3 +289,26 @@ export interface DeliveryStats {
     failed_deliveries: number;
     success_rate: number;
 }
+
+// ============ PLATFORM STATS (ADMIN) ============
+
+export interface PlatformStats {
+    total_users: number;
+    total_donors: number;
+    total_volunteers: number;
+    total_charities: number;
+    active_listings: number;
+    pending_deliveries: number;
+    completed_today: number;
+    active_volunteers: number;
+}
+
+export interface LeaderboardEntry {
+    user_id: string;
+    user_name: string;
+    total_deliveries: number;
+    total_meals_rescued: number;
+    total_kg_saved: number;
+    reliability_score?: number;
+    rank: number;
+}
