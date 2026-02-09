@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { listingsApi, analyticsApi } from '@/lib/api';
 import { FoodListing, ListingCreate, ListingStats, ImpactSummary, FoodCategory, ListingStatus } from '@/types';
+import ImpactCard from '@/components/ImpactCard';
+import { useToast } from '@/components/ui/toast';
 
 // Category options for select
 const FOOD_CATEGORIES: { value: FoodCategory; label: string }[] = [
@@ -32,6 +34,7 @@ const STATUS_COLORS: Record<ListingStatus, string> = {
 
 export default function DonorPage() {
     const { data: session } = useSession();
+    const toast = useToast();
     const [listings, setListings] = useState<FoodListing[]>([]);
     const [stats, setStats] = useState<ListingStats | null>(null);
     const [impact, setImpact] = useState<ImpactSummary | null>(null);
@@ -109,9 +112,10 @@ export default function DonorPage() {
             });
 
             fetchData();
+            toast.success('Listing created!', 'Your food listing is now available for pickup.');
         } catch (error) {
             console.error('Failed to create listing:', error);
-            alert('Failed to create listing');
+            toast.error('Failed to create listing', 'Please try again or check your details.');
         } finally {
             setSubmitting(false);
         }
@@ -123,9 +127,10 @@ export default function DonorPage() {
         try {
             await listingsApi.cancel(listingId);
             fetchData();
+            toast.success('Listing cancelled');
         } catch (error) {
             console.error('Failed to cancel listing:', error);
-            alert('Failed to cancel listing');
+            toast.error('Failed to cancel listing');
         }
     };
 
@@ -177,61 +182,30 @@ export default function DonorPage() {
 
                 {/* Impact Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div className="bg-white rounded-2xl p-6 shadow-lg border border-green-100">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Meals Rescued</p>
-                                <p className="text-3xl font-bold text-green-600 mt-1">
-                                    {impact?.total_meals_rescued ?? 0}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-green-100 rounded-xl">
-                                <span className="text-2xl">🍽️</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-6 shadow-lg border border-amber-100">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Food Saved (kg)</p>
-                                <p className="text-3xl font-bold text-amber-600 mt-1">
-                                    {impact?.total_kg_saved?.toFixed(1) ?? 0}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-amber-100 rounded-xl">
-                                <span className="text-2xl">📦</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-6 shadow-lg border border-blue-100">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">CO₂ Reduced (kg)</p>
-                                <p className="text-3xl font-bold text-blue-600 mt-1">
-                                    {impact?.total_co2_reduced_kg?.toFixed(1) ?? 0}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-blue-100 rounded-xl">
-                                <span className="text-2xl">🌱</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-6 shadow-lg border border-purple-100">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Active Listings</p>
-                                <p className="text-3xl font-bold text-purple-600 mt-1">
-                                    {stats?.active_listings ?? 0}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-purple-100 rounded-xl">
-                                <span className="text-2xl">📋</span>
-                            </div>
-                        </div>
-                    </div>
+                    <ImpactCard
+                        title="Meals Rescued"
+                        value={impact?.total_meals_rescued ?? 0}
+                        icon="🍽️"
+                        colorScheme="green"
+                    />
+                    <ImpactCard
+                        title="Food Saved"
+                        value={`${(impact?.total_kg_saved ?? 0).toFixed(1)} kg`}
+                        icon="📦"
+                        colorScheme="amber"
+                    />
+                    <ImpactCard
+                        title="CO₂ Reduced"
+                        value={`${(impact?.total_co2_reduced_kg ?? 0).toFixed(1)} kg`}
+                        icon="🌱"
+                        colorScheme="blue"
+                    />
+                    <ImpactCard
+                        title="Active Listings"
+                        value={stats?.active_listings ?? 0}
+                        icon="📋"
+                        colorScheme="purple"
+                    />
                 </div>
 
                 {/* Create Listing Form */}
