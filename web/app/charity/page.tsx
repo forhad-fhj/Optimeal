@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { deliveriesApi, feedbackApi, analyticsApi } from '@/lib/api';
 import { Delivery, DeliveryStatus, ImpactSummary, FeedbackCreate } from '@/types';
+import DeliveryTracker from '@/components/DeliveryTracker';
+import { useRealtimeDeliveries } from '@/lib/hooks/useRealtimeDelivery';
 
 // Status display configuration
 const STATUS_CONFIG: Record<DeliveryStatus, { label: string; color: string; icon: string }> = {
@@ -35,8 +37,16 @@ export default function CharityPage() {
         communication_rating: 5,
     });
     const [submitting, setSubmitting] = useState(false);
+    const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
 
     const userId = typeof window !== 'undefined' ? localStorage.getItem('optimeal_user_id') : null;
+
+    // Real-time tracking for incoming deliveries
+    const deliveryIds = incomingDeliveries.map(d => d.id);
+    const { trackingMap, refresh: refreshTracking } = useRealtimeDeliveries(deliveryIds, {
+        enabled: deliveryIds.length > 0,
+        pollingInterval: 10000, // 10 seconds for active tracking
+    });
 
     const fetchData = useCallback(async () => {
         if (!userId) return;
@@ -134,6 +144,17 @@ export default function CharityPage() {
         return formatDate(delivery.delivery_eta);
     };
 
+    const formatETAFromString = (eta: string) => {
+        const date = new Date(eta);
+        const now = new Date();
+        const diff = date.getTime() - now.getTime();
+
+        if (diff < 0) return 'Arriving soon';
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return `~${mins} min`;
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    };
+
     if (!session) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-green-50">
@@ -221,8 +242,8 @@ export default function CharityPage() {
                             <button
                                 onClick={() => setActiveTab('incoming')}
                                 className={`px-6 py-4 font-medium transition-colors relative ${activeTab === 'incoming'
-                                        ? 'text-green-600'
-                                        : 'text-gray-500 hover:text-gray-700'
+                                    ? 'text-green-600'
+                                    : 'text-gray-500 hover:text-gray-700'
                                     }`}
                             >
                                 Incoming Deliveries
@@ -238,8 +259,8 @@ export default function CharityPage() {
                             <button
                                 onClick={() => setActiveTab('history')}
                                 className={`px-6 py-4 font-medium transition-colors relative ${activeTab === 'history'
-                                        ? 'text-green-600'
-                                        : 'text-gray-500 hover:text-gray-700'
+                                    ? 'text-green-600'
+                                    : 'text-gray-500 hover:text-gray-700'
                                     }`}
                             >
                                 Donation History
@@ -266,69 +287,99 @@ export default function CharityPage() {
                                 </div>
                             ) : (
                                 <div className="grid gap-4">
-                                    {incomingDeliveries.map(delivery => (
-                                        <div
-                                            key={delivery.id}
-                                            className="border rounded-xl p-6 hover:border-green-200 transition-colors"
-                                        >
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="text-3xl">
-                                                        {STATUS_CONFIG[delivery.status]?.icon || '📦'}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-gray-900">
-                                                            Delivery #{delivery.id.slice(0, 8)}
-                                                        </p>
-                                                        <p className="text-sm text-gray-500">
-                                                            {delivery.listing_ids.length} item(s) • ETA: {getETA(delivery)}
-                                                        </p>
-                                                        {delivery.volunteer && (
-                                                            <p className="text-sm text-gray-600 mt-1">
-                                                                Driver: {delivery.volunteer.name}
-                                                            </p>
-                                                        )}
+                                    {incomingDeliveries.map(delivery => {
+                                        const tracking = trackingMap[delivery.id];
+                                        const isSelected = selectedDeliveryId === delivery.id;
+
+                                        return (
+                                            <div
+                                                key={delivery.id}
+                                                className={`border rounded-xl overflow-hidden transition-all ${isSelected ? 'border-green-400 ring-2 ring-green-100' : 'hover:border-green-200'
+                                                    }`}
+                                            >
+                                                {/* Delivery Header - Clickable */}
+                                                <div
+                                                    className="p-6 cursor-pointer"
+                                                    onClick={() => setSelectedDeliveryId(isSelected ? null : delivery.id)}
+                                                >
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="text-3xl">
+                                                                {STATUS_CONFIG[delivery.status]?.icon || '📦'}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-semibold text-gray-900">
+                                                                    Delivery #{delivery.id.slice(0, 8)}
+                                                                </p>
+                                                                <p className="text-sm text-gray-500">
+                                                                    {delivery.listing_ids.length} item(s) • ETA: {
+                                                                        tracking?.delivery_eta
+                                                                            ? formatETAFromString(tracking.delivery_eta)
+                                                                            : getETA(delivery)
+                                                                    }
+                                                                </p>
+                                                                {delivery.volunteer && (
+                                                                    <p className="text-sm text-gray-600 mt-1">
+                                                                        Driver: {delivery.volunteer.name}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-3">
+                                                            {/* Live indicator */}
+                                                            {tracking && !['delivered', 'confirmed', 'failed', 'cancelled'].includes(delivery.status) && (
+                                                                <span className="flex items-center gap-1.5 text-xs text-green-600">
+                                                                    <span className="relative flex h-2 w-2">
+                                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                                                    </span>
+                                                                    Live
+                                                                </span>
+                                                            )}
+
+                                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${STATUS_CONFIG[delivery.status]?.color || 'bg-gray-100'}`}>
+                                                                {STATUS_CONFIG[delivery.status]?.label || delivery.status}
+                                                            </span>
+
+                                                            {delivery.status === 'delivered' && !delivery.charity_confirmed && (
+                                                                <Button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        confirmDelivery(delivery.id);
+                                                                    }}
+                                                                    className="bg-green-600 hover:bg-green-700"
+                                                                >
+                                                                    Confirm Receipt
+                                                                </Button>
+                                                            )}
+
+                                                            <span className={`transition-transform ${isSelected ? 'rotate-180' : ''}`}>
+                                                                ▼
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
 
-                                                <div className="flex items-center gap-3">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${STATUS_CONFIG[delivery.status]?.color || 'bg-gray-100'}`}>
-                                                        {STATUS_CONFIG[delivery.status]?.label || delivery.status}
-                                                    </span>
-
-                                                    {delivery.status === 'delivered' && !delivery.charity_confirmed && (
-                                                        <Button
-                                                            onClick={() => confirmDelivery(delivery.id)}
-                                                            className="bg-green-600 hover:bg-green-700"
-                                                        >
-                                                            Confirm Receipt
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Progress bar for en-route deliveries */}
-                                            {['en_route_pickup', 'picked_up', 'en_route_delivery'].includes(delivery.status) && (
-                                                <div className="mt-4">
-                                                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                                        <span>Pickup</span>
-                                                        <span>On the way</span>
-                                                        <span>Delivery</span>
-                                                    </div>
-                                                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-gradient-to-r from-green-500 to-amber-500 transition-all"
-                                                            style={{
-                                                                width: delivery.status === 'en_route_pickup' ? '33%'
-                                                                    : delivery.status === 'picked_up' ? '66%'
-                                                                        : '90%'
+                                                {/* Expanded Tracker View */}
+                                                {isSelected && (
+                                                    <div className="border-t bg-gray-50 p-4">
+                                                        <DeliveryTracker
+                                                            tracking={tracking || {
+                                                                delivery_id: delivery.id,
+                                                                status: delivery.status,
+                                                                pickup_eta: delivery.pickup_eta,
+                                                                delivery_eta: delivery.delivery_eta,
+                                                                current_stop: 0,
+                                                                total_stops: delivery.listing_ids.length,
                                                             }}
+                                                            onRefresh={refreshTracking}
                                                         />
                                                     </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
