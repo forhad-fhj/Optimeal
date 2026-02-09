@@ -183,7 +183,21 @@ export default function VolunteerPage() {
                 <div className="text-center p-8 bg-white rounded-2xl shadow-xl">
                     <h2 className="text-2xl font-bold text-gray-800 mb-4">Volunteer Dashboard</h2>
                     <p className="text-gray-600 mb-6">Please sign in to start delivering food</p>
-                    <Button className="bg-green-600 hover:bg-green-700">Sign In</Button>
+                    <Button className="bg-green-600 hover:bg-green-700" onClick={() => (window.location.href = '/api/auth/signin')}>
+                        Sign In
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    if (!userId) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center p-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                    <h2 className="text-xl font-semibold text-gray-800">Connecting to server...</h2>
+                    <p className="text-gray-500 mt-2">Syncing your profile data</p>
                 </div>
             </div>
         );
@@ -224,8 +238,8 @@ export default function VolunteerPage() {
                             <button
                                 onClick={toggleAvailability}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${isAvailable
-                                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                             >
                                 <span className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-green-500' : 'bg-gray-400'}`} />
@@ -328,8 +342,8 @@ export default function VolunteerPage() {
                                             <p className="text-sm text-gray-500">{listing.quantity_kg} kg</p>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <span className={`text-xs px-2 py-0.5 rounded-full ${new Date(listing.expires_at).getTime() - Date.now() < 3600000
-                                                        ? 'bg-red-100 text-red-700'
-                                                        : 'bg-gray-100 text-gray-600'
+                                                    ? 'bg-red-100 text-red-700'
+                                                    : 'bg-gray-100 text-gray-600'
                                                     }`}>
                                                     {getTimeRemaining(listing.expires_at)}
                                                 </span>
