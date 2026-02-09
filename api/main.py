@@ -20,7 +20,12 @@ app = FastAPI(
 )
 
 # Get allowed origins from environment or use defaults
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+default_origins = "http://localhost:3000,https://optimeal-amber.vercel.app"
+ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", default_origins).split(",")]
+
+# Also allow all for development (comment out in strict production)
+if "*" not in ALLOWED_ORIGINS and os.getenv("ALLOW_ALL_ORIGINS", "false").lower() == "true":
+    ALLOWED_ORIGINS = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
