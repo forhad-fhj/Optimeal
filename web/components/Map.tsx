@@ -39,6 +39,15 @@ const foodIcon = L.icon({
   shadowSize: [41, 41]
 });
 
+const selectedFoodIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/markers-default/orange.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
 // Update view component
 function ChangeView({ center, zoom }: { center: [number, number], zoom: number }) {
   const map = useMap();
@@ -55,47 +64,47 @@ interface MapProps {
 }
 
 export default function Map({ volunteerLocation, listings = [], route = [], onSelectListing, selectedListings = [] }: MapProps) {
-  
+
   return (
     <MapContainer center={volunteerLocation || [40.7128, -74.0060]} zoom={13} style={{ height: '100%', width: '100%' }}>
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
-      
+
       {volunteerLocation && (
         <>
-            <Marker position={volunteerLocation} icon={volunteerIcon}>
+          <Marker position={volunteerLocation} icon={volunteerIcon}>
             <Popup>You (Volunteer)</Popup>
-            </Marker>
-            <ChangeView center={volunteerLocation} zoom={13} />
+          </Marker>
+          <ChangeView center={volunteerLocation} zoom={13} />
         </>
       )}
 
-      {listings.map((listing) => (
-        <Marker 
-          key={listing.id} 
-          position={[listing.donor.location_lat, listing.donor.location_lng]}
-          icon={foodIcon}
+      {listings.filter(l => l.location_lat && l.location_lng).map((listing) => (
+        <Marker
+          key={listing.id}
+          position={[listing.location_lat, listing.location_lng]}
+          icon={selectedListings.includes(listing.id) ? selectedFoodIcon : foodIcon}
           eventHandlers={{
             click: () => onSelectListing && onSelectListing(listing.id),
           }}
-          opacity={selectedListings.includes(listing.id) ? 1 : 0.6}
+          opacity={selectedListings.includes(listing.id) ? 1 : 0.7}
         >
           <Popup>
-            <strong>{listing.title}</strong><br/>
-            {listing.quantity_kg} kg<br/>
-            {listing.donor.name}
+            <strong>{listing.title}</strong><br />
+            {listing.quantity_kg} kg<br />
+            {listing.address || 'Pickup location'}
           </Popup>
         </Marker>
       ))}
 
       {route.length > 0 && (
-        <Polyline 
-            positions={route.map(p => [p.lat, p.lng])} 
-            color="blue" 
-            weight={4} 
-            opacity={0.7} 
+        <Polyline
+          positions={route.map(p => [p.lat, p.lng])}
+          color="blue"
+          weight={4}
+          opacity={0.7}
         />
       )}
     </MapContainer>

@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import users, auth
+from routers import users, auth, listings, routes, deliveries, matching, feedback, analytics
 from db import engine, Base
 import os
 
@@ -12,7 +12,12 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     yield
 
-app = FastAPI(title="OptiMeal API", lifespan=lifespan)
+app = FastAPI(
+    title="OptiMeal API",
+    description="Food rescue logistics platform API",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 # Get allowed origins from environment or use defaults
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
@@ -25,10 +30,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Legacy routes (for backward compatibility)
 app.include_router(users.router)
 app.include_router(auth.router)
 
+# V1 API routes
+app.include_router(listings.router)
+app.include_router(routes.router)
+app.include_router(deliveries.router)
+app.include_router(matching.router)
+app.include_router(feedback.router)
+app.include_router(analytics.router)
+
 @app.get("/")
 def read_root():
-    return {"message": "OptiMeal API is running"}
+    return {"message": "OptiMeal API is running", "version": "1.0.0"}
 
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
