@@ -22,7 +22,7 @@ export default function ProfilePage() {
             // If no ID but session exists (sync race condition), try to sync manually or wait
             if (!userId && session?.user?.email) {
                 try {
-                    const getSync = await postData('/api/auth/sync', {
+                    const getSync = await postData<{ id: string }>('/api/auth/sync', {
                         email: session.user.email,
                         name: session.user.name || 'Unknown',
                         image_url: session.user.image,
@@ -30,7 +30,7 @@ export default function ProfilePage() {
                         provider_id: 'google'
                     });
                     userId = getSync.id;
-                    localStorage.setItem('optimeal_user_id', userId!);
+                    localStorage.setItem('optimeal_user_id', userId);
                 } catch (e) {
                     console.error("Sync failed on profile load", e);
                 }
@@ -38,7 +38,7 @@ export default function ProfilePage() {
 
             if (userId) {
                 try {
-                    const data = await fetcher(`/api/users/${userId}`);
+                    const data = await fetcher<{ name: string; role: string; phone: string }>(`/api/users/${userId}`);
                     setProfile({
                         name: data.name || '',
                         role: data.role || 'volunteer',
