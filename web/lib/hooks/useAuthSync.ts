@@ -9,7 +9,7 @@ export function useAuthSync() {
         const syncUser = async () => {
             if (session?.user?.email) {
                 try {
-                    const user = await postData('/api/auth/sync', {
+                    const user = await postData<{ id: string }>('/api/auth/sync', {
                         email: session.user.email,
                         name: session.user.name || 'Unknown',
                         image_url: session.user.image,
