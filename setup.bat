@@ -12,13 +12,13 @@ timeout /t 10
 echo.
 echo Initializing Backend...
 cd api
-if not exist venv_prod (
-    python -m venv venv_prod
-    call venv_prod\Scripts\activate
+if not exist venv (
+    python -m venv venv
+    call venv\Scripts\activate
     pip install -r requirements.txt
 )
-call venv_prod\Scripts\activate
-python init_db.py
+call venv\Scripts\activate
+python scripts/init_db.py
 
 echo.
 echo Starting Backend Server...
