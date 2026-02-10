@@ -37,7 +37,9 @@ export default function Header() {
                         <Link href="/donor" className={isActive('/donor')}>Donor</Link>
                         <Link href="/volunteer" className={isActive('/volunteer')}>Volunteer</Link>
                         <Link href="/charity" className={isActive('/charity')}>Charity</Link>
-                        <Link href="/admin" className={isActive('/admin')}>Admin</Link>
+                        {session?.user?.role === 'admin' && (
+                            <Link href="/admin" className={isActive('/admin')}>Admin</Link>
+                        )}
                     </nav>
                 </div>
 
@@ -95,6 +97,9 @@ export default function Header() {
                     <Link href="/donor" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Donor Dashboard</Link>
                     <Link href="/volunteer" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Volunteer Map</Link>
                     <Link href="/charity" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Charity Hub</Link>
+                    {session?.user?.role === 'admin' && (
+                        <Link href="/admin" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Admin Dashboard</Link>
+                    )}
                     <div className="pt-2 border-t border-slate-100">
                         {session ? (
                             <>
