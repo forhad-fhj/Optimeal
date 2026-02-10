@@ -44,7 +44,7 @@ export default function Header() {
                 {/* Right Side Actions */}
                 <div className="flex items-center gap-4">
                     {session ? (
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
                             <Link href="/profile" className="hidden sm:flex items-center gap-3 hover:bg-slate-50 p-1.5 pr-3 rounded-full border border-transparent hover:border-slate-200 transition-all">
                                 {session.user?.image ? (
                                     <img src={session.user.image} alt="User" className="w-8 h-8 rounded-full object-cover" />
@@ -58,6 +58,17 @@ export default function Header() {
                                     <p className="text-slate-400">View Profile</p>
                                 </div>
                             </Link>
+                            <button
+                                onClick={() => {
+                                    localStorage.removeItem('optimeal_user_id');
+                                    signOut({ callbackUrl: '/' });
+                                }}
+                                className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-full border border-slate-200 hover:border-red-200 transition-all"
+                                title="Sign Out"
+                            >
+                                <LogOut size={14} />
+                                <span>Sign Out</span>
+                            </button>
                         </div>
                     ) : (
                         <Button
@@ -86,7 +97,19 @@ export default function Header() {
                     <Link href="/charity" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Charity Hub</Link>
                     <div className="pt-2 border-t border-slate-100">
                         {session ? (
-                            <Link href="/profile" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>My Profile</Link>
+                            <>
+                                <Link href="/profile" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>My Profile</Link>
+                                <button
+                                    onClick={() => {
+                                        localStorage.removeItem('optimeal_user_id');
+                                        signOut({ callbackUrl: '/' });
+                                    }}
+                                    className="w-full flex items-center gap-2 p-3 rounded-lg hover:bg-red-50 text-red-600 font-medium transition-colors"
+                                >
+                                    <LogOut size={16} />
+                                    Sign Out
+                                </button>
+                            </>
                         ) : (
                             <button className="w-full text-left p-3 text-emerald-600 font-semibold" onClick={() => signIn('google')}>Sign In</button>
                         )}
