@@ -152,15 +152,9 @@ export default function ProfilePage() {
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-slate-700 mb-1 block">Role</label>
-                                    <select
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                        value={profile.role}
-                                        onChange={e => setProfile({ ...profile, role: e.target.value })}
-                                    >
-                                        <option value="donor">Donor</option>
-                                        <option value="volunteer">Volunteer</option>
-                                        <option value="charity">Charity</option>
-                                    </select>
+                                    <div className="flex h-10 w-full items-center rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 capitalize">
+                                        {profile.role}
+                                    </div>
                                 </div>
                             </div>
 
