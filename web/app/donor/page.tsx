@@ -114,12 +114,19 @@ export default function DonorPage() {
             const expiresAt = pickupEnd; // expires when pickup window ends
 
             await listingsApi.create({
-                ...formData,
-                donor_id: userId,
+                title: formData.title,
+                description: formData.description || undefined,
+                food_category: formData.food_category,
                 quantity_kg: Number(formData.quantity_kg),
                 pickup_window_start: pickupStart,
                 pickup_window_end: pickupEnd,
                 expires_at: expiresAt,
+                address: formData.address,
+                location_lat: formData.location_lat,
+                location_lng: formData.location_lng,
+                requires_refrigeration: formData.requires_refrigeration,
+                allergens: formData.allergens,
+                donor_id: userId,
             });
 
             setShowForm(false);
@@ -134,13 +141,15 @@ export default function DonorPage() {
                 address: '',
                 requires_refrigeration: false,
                 allergens: [],
+                location_lat: undefined,
+                location_lng: undefined,
             });
 
             fetchData();
             toast.success('Listing created!', 'Your food listing is now available for pickup.');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to create listing:', error);
-            toast.error('Failed to create listing', 'Please try again or check your details.');
+            toast.error('Failed to create listing', error?.message || 'Please try again or check your details.');
         } finally {
             setSubmitting(false);
         }
