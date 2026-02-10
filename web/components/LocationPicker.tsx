@@ -121,19 +121,27 @@ export default function LocationPicker({ address, lat, lng, onLocationChange }: 
     return (
         <div className="space-y-3">
             {/* Search bar */}
-            <form onSubmit={handleSearchSubmit} className="flex gap-2">
+            <div className="flex gap-2">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (searchQuery.trim()) forwardGeocode(searchQuery.trim());
+                            }
+                        }}
                         placeholder="Search address or click on map..."
                         className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                     />
                 </div>
                 <button
-                    type="submit"
+                    type="button"
+                    onClick={() => { if (searchQuery.trim()) forwardGeocode(searchQuery.trim()); }}
                     disabled={searching}
                     className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
                 >
@@ -147,7 +155,7 @@ export default function LocationPicker({ address, lat, lng, onLocationChange }: 
                 >
                     <Crosshair size={18} />
                 </button>
-            </form>
+            </div>
 
             {/* Map */}
             <div className="h-[220px] rounded-xl overflow-hidden border border-slate-200 shadow-sm">
