@@ -214,8 +214,14 @@ async def create_listing(listing_data: ListingCreate, db: AsyncSession = Depends
     # Update donor's total donations count
     donor.total_donations = (donor.total_donations or 0) + 1
     
-    await db.commit()
-    await db.refresh(listing)
+    try:
+        await db.commit()
+        await db.refresh(listing)
+    except Exception as e:
+        await db.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
     # Load donor relationship
     stmt = select(FoodListing).options(selectinload(FoodListing.donor)).where(FoodListing.id == listing.id)
