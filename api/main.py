@@ -90,8 +90,12 @@ app.include_router(analytics.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "OptiMeal API is running", "version": "1.0.0"}
+    return {"message": "OptiMeal API is running", "version": "1.0.1"}
+
+@app.get("/debug-sentry")
+def trigger_error():
+    return {"message": "Debug endpoint working", "env": os.getenv("scary_secret", "safe")}
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "version": "1.0.1"}
