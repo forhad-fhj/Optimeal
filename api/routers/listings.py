@@ -165,7 +165,7 @@ async def get_listing(listing_id: UUID, db: AsyncSession = Depends(get_db)):
 @router.post("", response_model=ListingResponse, status_code=201)
 async def create_listing(listing_data: ListingCreate, db: AsyncSession = Depends(get_db)):
     """Create a new food listing"""
-    # Verify donor exists and is a donor
+    # Verify donor exists
     stmt = select(User).where(User.id == listing_data.donor_id)
     result = await db.execute(stmt)
     donor = result.scalars().first()
@@ -173,8 +173,9 @@ async def create_listing(listing_data: ListingCreate, db: AsyncSession = Depends
     if not donor:
         raise HTTPException(status_code=404, detail="Donor not found")
     
-    if donor.role != UserRole.donor:
-        raise HTTPException(status_code=403, detail="Only donors can create listings")
+    # Auto-set role to donor if user doesn't have one yet (allow any user to donate)
+    if donor.role not in (UserRole.donor, UserRole.admin):
+        donor.role = UserRole.donor
     
     # Validate pickup window
     if listing_data.pickup_window_start >= listing_data.pickup_window_end:
