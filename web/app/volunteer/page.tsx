@@ -6,12 +6,12 @@ import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { listingsApi, routesApi, deliveriesApi, usersApi } from '@/lib/api';
 import { FoodListing, RoutePoint, RouteResponse, UserBrief, DeliveryStats, FoodCategory } from '@/types';
+import { MapPin, Navigation, Clock, CheckCircle2, Truck, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 
 // Dynamic import for Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), { ssr: false });
 
-// Category display
-const CATEGORY_EMOJI: Record<FoodCategory, string> = {
+const CATEGORY_ICONS: Record<FoodCategory, string> = {
     prepared: '🍲',
     bakery: '🥖',
     produce: '🥬',
@@ -36,6 +36,7 @@ export default function VolunteerPage() {
     const [loading, setLoading] = useState(true);
     const [calculating, setCalculating] = useState(false);
     const [claiming, setClaiming] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     const userId = typeof window !== 'undefined' ? localStorage.getItem('optimeal_user_id') : null;
 
@@ -48,8 +49,7 @@ export default function VolunteerPage() {
             },
             (err) => {
                 console.error('Geolocation error:', err);
-                // Default to a location if geolocation fails
-                setPosition([23.8103, 90.4125]); // Dhaka
+                setPosition([23.8103, 90.4125]); // Default: Dhaka
             }
         );
     }, []);
@@ -68,7 +68,6 @@ export default function VolunteerPage() {
             setListings(listingsData);
             setCharities(charitiesData);
 
-            // Get stats if user is logged in
             if (userId) {
                 const statsData = await deliveriesApi.getStats(userId, 'volunteer') as DeliveryStats;
                 setStats(statsData);
@@ -88,29 +87,23 @@ export default function VolunteerPage() {
         setSelectedListings(prev =>
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
         );
-        // Clear route when selection changes
         setRoute([]);
         setRouteInfo(null);
     };
 
     const toggleAvailability = async () => {
-        if (!userId) {
-            alert('Please login to toggle availability');
-            return;
-        }
-
+        if (!userId) return;
         try {
             await usersApi.toggleAvailability(userId, !isAvailable);
             setIsAvailable(!isAvailable);
         } catch (err) {
             console.error('Failed to toggle availability:', err);
-            alert('Failed to update availability');
         }
     };
 
     const calculateRoute = async () => {
         if (!position || selectedListings.length === 0 || !selectedCharity) {
-            alert('Please select listings and a charity');
+            alert('Please select listings and a charity destination.');
             return;
         }
 
@@ -130,17 +123,14 @@ export default function VolunteerPage() {
             });
         } catch (err) {
             console.error('Failed to calculate route:', err);
-            alert('Failed to calculate route');
+            alert('Could not calculate optimal route.');
         } finally {
             setCalculating(false);
         }
     };
 
     const claimDelivery = async () => {
-        if (route.length === 0 || !selectedCharity || !userId) {
-            alert('Please calculate a route first');
-            return;
-        }
+        if (route.length === 0 || !selectedCharity || !userId) return;
 
         setClaiming(true);
         try {
@@ -151,18 +141,14 @@ export default function VolunteerPage() {
                 optimized_route_data: route,
             });
 
-            alert('Delivery claimed successfully!');
-
-            // Reset state
+            alert('Delivery claimed! Check your dashboard for details.');
             setSelectedListings([]);
             setRoute([]);
             setRouteInfo(null);
-
-            // Refresh listings
             fetchData();
         } catch (err) {
             console.error('Failed to claim delivery:', err);
-            alert('Failed to claim delivery');
+            alert('Failed to claim delivery. Please try again.');
         } finally {
             setClaiming(false);
         }
@@ -179,11 +165,11 @@ export default function VolunteerPage() {
 
     if (!session) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50">
-                <div className="text-center p-8 bg-white rounded-2xl shadow-xl">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Volunteer Dashboard</h2>
-                    <p className="text-gray-600 mb-6">Please sign in to start delivering food</p>
-                    <Button className="bg-green-600 hover:bg-green-700" onClick={() => (window.location.href = '/api/auth/signin')}>
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-slate-200 max-w-md w-full">
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Volunteer Portal</h2>
+                    <p className="text-slate-500 mb-8">Sign in to start recovering food and helping your community.</p>
+                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => (window.location.href = '/api/auth/signin')}>
                         Sign In
                     </Button>
                 </div>
@@ -191,188 +177,199 @@ export default function VolunteerPage() {
         );
     }
 
-    if (!userId) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="text-center p-8">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-                    <h2 className="text-xl font-semibold text-gray-800">Connecting to server...</h2>
-                    <p className="text-gray-500 mt-2">Syncing your profile data</p>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-gray-50">
-            {/* Top Bar */}
-            <div className="bg-white border-b shadow-sm z-20">
-                <div className="max-w-7xl mx-auto px-4 py-4">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        {/* Left: Title & Stats */}
-                        <div className="flex items-center gap-6">
-                            <div>
-                                <h1 className="text-xl font-bold text-gray-900">Volunteer Map</h1>
-                                <p className="text-sm text-gray-500">
-                                    {loading ? 'Loading...' : `${listings.length} pickups nearby`}
-                                </p>
-                            </div>
+        <div className="h-[calc(100vh-64px)] flex flex-col bg-slate-50 relative overflow-hidden">
+            {/* Map Area */}
+            <div className="absolute inset-0 z-0">
+                <Map
+                    volunteerLocation={position}
+                    listings={listings}
+                    route={route}
+                    onSelectListing={toggleListing}
+                    selectedListings={selectedListings}
+                />
+            </div>
 
-                            {stats && (
-                                <div className="hidden md:flex items-center gap-4 pl-6 border-l">
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-green-600">{stats.completed_deliveries}</p>
-                                        <p className="text-xs text-gray-500">Completed</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <p className="text-2xl font-bold text-blue-600">{stats.active_deliveries}</p>
-                                        <p className="text-xs text-gray-500">Active</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+            {/* Floating Stats Bar (Desktop) */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 hidden md:flex bg-white/90 backdrop-blur-md shadow-lg rounded-full px-6 py-2 border border-slate-200 gap-8 items-center">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-100 rounded-full text-emerald-600">
+                        <CheckCircle2 size={18} />
+                    </div>
+                    <div>
+                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Completed</p>
+                        <p className="text-lg font-bold text-slate-900 leading-none">{stats?.completed_deliveries || 0}</p>
+                    </div>
+                </div>
+                <div className="w-px h-8 bg-slate-200"></div>
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+                        <Truck size={18} />
+                    </div>
+                    <div>
+                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Active</p>
+                        <p className="text-lg font-bold text-slate-900 leading-none">{stats?.active_deliveries || 0}</p>
+                    </div>
+                </div>
+                <div className="w-px h-8 bg-slate-200"></div>
+                <button
+                    onClick={toggleAvailability}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${isAvailable
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-slate-50 text-slate-600 border border-slate-200'
+                        }`}
+                >
+                    <div className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                    {isAvailable ? 'Online' : 'Offline'}
+                </button>
+            </div>
 
-                        {/* Right: Controls */}
-                        <div className="flex items-center gap-3">
-                            {/* Availability Toggle */}
-                            <button
-                                onClick={toggleAvailability}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${isAvailable
-                                    ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                            >
-                                <span className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                {isAvailable ? 'Available' : 'Unavailable'}
-                            </button>
+            {/* Sidebar Controls */}
+            <div
+                className={`absolute left-0 top-0 bottom-0 bg-white shadow-2xl z-20 transition-transform duration-300 ease-in-out border-r border-slate-200 flex flex-col ${isSidebarOpen ? 'translate-x-0 w-full md:w-96' : '-translate-x-full w-0'
+                    }`}
+            >
+                {/* Sidebar Header */}
+                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                    <div>
+                        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                            <Navigation className="text-blue-600" size={20} />
+                            Route Planner
+                        </h1>
+                        <p className="text-sm text-slate-500 mt-1">{listings.length} pickups available</p>
+                    </div>
+                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 hover:bg-slate-100 rounded-lg">
+                        <ChevronLeft size={20} />
+                    </button>
+                </div>
 
-                            {/* Charity Selector */}
+                {/* Main Content Areas */}
+                <div className="flex-grow overflow-y-auto">
+                    {/* Action Panel */}
+                    <div className="p-5 space-y-4 bg-slate-50/50 border-b border-slate-100">
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
+                                Delivery Destination
+                            </label>
                             <select
                                 value={selectedCharity}
                                 onChange={e => setSelectedCharity(e.target.value)}
-                                className="px-4 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                             >
-                                <option value="">Select Charity</option>
+                                <option value="">Select Charity...</option>
                                 {charities.map(c => (
                                     <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                             </select>
+                        </div>
 
-                            {/* Calculate Route Button */}
+                        <div className="grid grid-cols-2 gap-3">
                             <Button
                                 onClick={calculateRoute}
                                 disabled={selectedListings.length === 0 || !selectedCharity || calculating}
-                                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                                className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+                                size="sm"
                             >
-                                {calculating ? 'Calculating...' : `Route (${selectedListings.length})`}
+                                {calculating ? 'Working...' : 'Optimize Route'}
                             </Button>
-
-                            {/* Claim Delivery Button */}
                             <Button
                                 onClick={claimDelivery}
                                 disabled={route.length === 0 || claiming}
-                                className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
-                            >
-                                {claiming ? 'Claiming...' : 'Claim Delivery'}
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Route Info Bar */}
-                    {routeInfo && (
-                        <div className="mt-4 p-3 bg-blue-50 rounded-xl flex items-center justify-between">
-                            <div className="flex items-center gap-6">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-blue-600">📍</span>
-                                    <span className="font-medium">{route.length} stops</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-blue-600">🛣️</span>
-                                    <span className="font-medium">{routeInfo.distance.toFixed(1)} km</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-blue-600">⏱️</span>
-                                    <span className="font-medium">~{routeInfo.duration} min</span>
-                                </div>
-                            </div>
-                            <Button
-                                onClick={() => window.open(`https://www.google.com/maps/dir/${route.map(s => `${s.lat},${s.lng}`).join('/')}`, '_blank')}
-                                variant="outline"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white w-full"
                                 size="sm"
                             >
-                                Open in Maps
+                                {claiming ? 'Claiming...' : 'Start Delivery'}
                             </Button>
                         </div>
-                    )}
-                </div>
-            </div>
 
-            {/* Main Content: Map + Sidebar */}
-            <div className="flex-grow flex overflow-hidden">
-                {/* Sidebar: Listings */}
-                <div className="w-80 bg-white border-r overflow-y-auto hidden lg:block">
-                    <div className="p-4 border-b bg-gray-50">
-                        <h3 className="font-semibold text-gray-900">Available Pickups</h3>
-                        <p className="text-sm text-gray-500">Select items to add to your route</p>
+                        {routeInfo && (
+                            <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center text-sm">
+                                <div className="text-blue-900">
+                                    <span className="font-semibold">{routeInfo.distance.toFixed(1)} km</span>
+                                    <span className="mx-1">•</span>
+                                    <span>~{routeInfo.duration} mins</span>
+                                </div>
+                                <span className="text-blue-600 font-medium">{route.length} stops</span>
+                            </div>
+                        )}
                     </div>
 
-                    {loading ? (
-                        <div className="p-8 text-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                        </div>
-                    ) : listings.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">
-                            <p>No pickups nearby</p>
-                        </div>
-                    ) : (
-                        <div className="divide-y">
-                            {listings.map(listing => (
-                                <button
-                                    key={listing.id}
-                                    onClick={() => toggleListing(listing.id)}
-                                    className={`w-full p-4 text-left transition-colors hover:bg-gray-50 ${selectedListings.includes(listing.id) ? 'bg-green-50 border-l-4 border-green-500' : ''
-                                        }`}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <span className="text-2xl">
-                                            {CATEGORY_EMOJI[listing.food_category] || '📦'}
-                                        </span>
-                                        <div className="flex-grow min-w-0">
-                                            <p className="font-medium text-gray-900 truncate">{listing.title}</p>
-                                            <p className="text-sm text-gray-500">{listing.quantity_kg} kg</p>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className={`text-xs px-2 py-0.5 rounded-full ${new Date(listing.expires_at).getTime() - Date.now() < 3600000
-                                                    ? 'bg-red-100 text-red-700'
-                                                    : 'bg-gray-100 text-gray-600'
-                                                    }`}>
-                                                    {getTimeRemaining(listing.expires_at)}
+                    {/* Listings Feed */}
+                    <div className="p-2">
+                        <h3 className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 bg-white/95 backdrop-blur z-10">
+                            Nearby Pickups
+                        </h3>
+                        {loading ? (
+                            <div className="py-10 text-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto opacity-50"></div>
+                            </div>
+                        ) : listings.length === 0 ? (
+                            <div className="text-center py-10 px-4">
+                                <span className="text-4xl block mb-2">🌿</span>
+                                <p className="text-slate-500 text-sm">No food to rescue nearby right now.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {listings.map(listing => {
+                                    const isSelected = selectedListings.includes(listing.id);
+                                    return (
+                                        <div
+                                            key={listing.id}
+                                            onClick={() => toggleListing(listing.id)}
+                                            className={`p-3 rounded-xl border transition-all cursor-pointer hover:shadow-md ${isSelected
+                                                    ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100'
+                                                    : 'bg-white border-slate-100 hover:border-blue-200'
+                                                }`}
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <span className="text-2xl bg-slate-50 p-2 rounded-lg">
+                                                    {CATEGORY_ICONS[listing.food_category] || '📦'}
                                                 </span>
-                                                {listing.requires_refrigeration && (
-                                                    <span className="text-xs text-blue-600">❄️ Cold</span>
-                                                )}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex justify-between items-start">
+                                                        <h4 className={`font-semibold text-sm truncate ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
+                                                            {listing.title}
+                                                        </h4>
+                                                        {isSelected && <CheckCircle2 size={16} className="text-blue-600 flex-shrink-0" />}
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 mt-0.5">{listing.quantity_kg} kg • {listing.address?.split(',')[0]}</p>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded ${new Date(listing.expires_at).getTime() - Date.now() < 3600000
+                                                                ? 'bg-rose-50 text-rose-600'
+                                                                : 'bg-slate-100 text-slate-600'
+                                                            }`}>
+                                                            <Clock size={10} />
+                                                            {getTimeRemaining(listing.expires_at)}
+                                                        </span>
+                                                        {listing.requires_refrigeration && (
+                                                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">❄️ Cold</span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                        {selectedListings.includes(listing.id) && (
-                                            <span className="text-green-600 text-xl">✓</span>
-                                        )}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Map */}
-                <div className="flex-grow relative">
-                    <Map
-                        volunteerLocation={position}
-                        listings={listings}
-                        route={route}
-                        onSelectListing={toggleListing}
-                        selectedListings={selectedListings}
-                    />
+                {/* Sidebar Footer */}
+                <div className="p-4 border-t border-slate-100 bg-slate-50 text-xs text-slate-400 text-center">
+                    OptiMeal Logistics v1.0
                 </div>
             </div>
+
+            {/* Closed Sidebar Trigger */}
+            {!isSidebarOpen && (
+                <button
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="absolute left-4 top-4 z-20 bg-white p-3 rounded-full shadow-lg border border-slate-200 hover:bg-slate-50 transition-transform hover:scale-105"
+                >
+                    <Menu size={24} className="text-slate-700" />
+                </button>
+            )}
         </div>
     );
 }

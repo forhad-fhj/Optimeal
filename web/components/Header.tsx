@@ -5,59 +5,94 @@ import { Button } from './ui/button';
 import { usePathname } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useAuthSync } from '../lib/hooks/useAuthSync';
+import { Menu, X, LogOut, Settings, User } from 'lucide-react';
+import { useState } from 'react';
 
 export default function Header() {
     const pathname = usePathname();
     const { data: session } = useSession();
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     // Activate sync
     useAuthSync();
 
-    const isActive = (path: string) => pathname === path ? 'text-green-600 font-bold' : 'text-gray-600 hover:text-green-600';
+    const isActive = (path: string) => pathname === path
+        ? 'text-emerald-600 font-semibold bg-emerald-50 px-3 py-1 rounded-full'
+        : 'text-slate-600 hover:text-emerald-600 hover:bg-slate-50 px-3 py-1 rounded-full transition-all';
 
     return (
-        <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-            <div className="container flex h-16 items-center justify-between mx-auto px-4">
+        <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md">
+            <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+                {/* Logo & Desktop Nav */}
                 <div className="flex items-center gap-8">
-                    <Link href="/" className="flex items-center space-x-2">
-                        <span className="text-3xl font-extrabold tracking-tight text-green-700">OptiMeal</span>
+                    <Link href="/" className="flex items-center gap-2 group">
+                        <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-xl group-hover:bg-emerald-700 transition-colors">
+                            O
+                        </div>
+                        <span className="text-xl font-bold text-slate-900 tracking-tight">OptiMeal</span>
                     </Link>
-                    <nav className="hidden md:flex gap-6">
-                        <Link href="/donor" className={`text-sm font-medium transition-colors ${isActive('/donor')}`}>
-                            Donor
-                        </Link>
-                        <Link href="/volunteer" className={`text-sm font-medium transition-colors ${isActive('/volunteer')}`}>
-                            Volunteer
-                        </Link>
-                        <Link href="/charity" className={`text-sm font-medium transition-colors ${isActive('/charity')}`}>
-                            Charity
-                        </Link>
-                        <Link href="/admin" className={`text-sm font-medium transition-colors ${isActive('/admin')}`}>
-                            Admin
-                        </Link>
+
+                    {/* Desktop Navigation */}
+                    <nav className="hidden md:flex gap-2">
+                        <Link href="/donor" className={isActive('/donor')}>Donor</Link>
+                        <Link href="/volunteer" className={isActive('/volunteer')}>Volunteer</Link>
+                        <Link href="/charity" className={isActive('/charity')}>Charity</Link>
+                        <Link href="/admin" className={isActive('/admin')}>Admin</Link>
                     </nav>
                 </div>
 
+                {/* Right Side Actions */}
                 <div className="flex items-center gap-4">
                     {session ? (
-                        <Link href="/profile" className="flex items-center gap-2 hover:bg-gray-100 p-2 rounded-full transition-colors">
-                            {session.user?.image ? (
-                                <img src={session.user.image} alt="User" className="w-8 h-8 rounded-full" />
-                            ) : (
-                                <div className="w-8 h-8 bg-green-100 text-green-700 rounded-full flex items-center justify-center font-bold">
-                                    {session.user?.name?.[0]}
+                        <div className="flex items-center gap-4">
+                            <Link href="/profile" className="hidden sm:flex items-center gap-3 hover:bg-slate-50 p-1.5 pr-3 rounded-full border border-transparent hover:border-slate-200 transition-all">
+                                {session.user?.image ? (
+                                    <img src={session.user.image} alt="User" className="w-8 h-8 rounded-full object-cover" />
+                                ) : (
+                                    <div className="w-8 h-8 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center font-bold text-sm">
+                                        {session.user?.name?.[0] || 'U'}
+                                    </div>
+                                )}
+                                <div className="text-xs text-left">
+                                    <p className="font-semibold text-slate-700 leading-tight">{session.user?.name?.split(' ')[0]}</p>
+                                    <p className="text-slate-400">View Profile</p>
                                 </div>
-                            )}
-                            <span className="font-medium text-sm hidden sm:block">{session.user?.name}</span>
-                        </Link>
-
+                            </Link>
+                        </div>
                     ) : (
-                        <Button size="sm" onClick={() => signIn('google')}>
-                            Login with Google
+                        <Button
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md transition-all rounded-full px-6"
+                            onClick={() => signIn('google')}
+                        >
+                            Sign In
                         </Button>
                     )}
+
+                    {/* Mobile Menu Toggle */}
+                    <button
+                        className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    >
+                        {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
                 </div>
             </div>
-        </header >
+
+            {/* Mobile Menu */}
+            {isMenuOpen && (
+                <div className="md:hidden border-t border-slate-100 bg-white p-4 space-y-2 absolute w-full shadow-lg">
+                    <Link href="/donor" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Donor Dashboard</Link>
+                    <Link href="/volunteer" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Volunteer Map</Link>
+                    <Link href="/charity" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Charity Hub</Link>
+                    <div className="pt-2 border-t border-slate-100">
+                        {session ? (
+                            <Link href="/profile" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>My Profile</Link>
+                        ) : (
+                            <button className="w-full text-left p-3 text-emerald-600 font-semibold" onClick={() => signIn('google')}>Sign In</button>
+                        )}
+                    </div>
+                </div>
+            )}
+        </header>
     );
 }

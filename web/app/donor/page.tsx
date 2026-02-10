@@ -8,8 +8,8 @@ import { listingsApi, analyticsApi } from '@/lib/api';
 import { FoodListing, ListingCreate, ListingStats, ImpactSummary, FoodCategory, ListingStatus } from '@/types';
 import ImpactCard from '@/components/ImpactCard';
 import { useToast } from '@/components/ui/toast';
+import { Plus, X, MapPin, Clock, Package, Leaf } from 'lucide-react';
 
-// Category options for select
 const FOOD_CATEGORIES: { value: FoodCategory; label: string }[] = [
     { value: 'prepared', label: '🍲 Prepared Meals' },
     { value: 'bakery', label: '🥖 Bakery Items' },
@@ -21,15 +21,14 @@ const FOOD_CATEGORIES: { value: FoodCategory; label: string }[] = [
     { value: 'mixed', label: '📋 Mixed Items' },
 ];
 
-// Status badge colors
-const STATUS_COLORS: Record<ListingStatus, string> = {
-    available: 'bg-green-100 text-green-800',
-    reserved: 'bg-yellow-100 text-yellow-800',
-    assigned: 'bg-blue-100 text-blue-800',
-    picked_up: 'bg-purple-100 text-purple-800',
-    delivered: 'bg-emerald-100 text-emerald-800',
-    expired: 'bg-gray-100 text-gray-800',
-    cancelled: 'bg-red-100 text-red-800',
+const STATUS_DATA: Record<ListingStatus, { color: string; label: string }> = {
+    available: { color: 'bg-emerald-100 text-emerald-700', label: 'Available' },
+    reserved: { color: 'bg-amber-100 text-amber-700', label: 'Reserved' },
+    assigned: { color: 'bg-blue-100 text-blue-700', label: 'Driver Assigned' },
+    picked_up: { color: 'bg-purple-100 text-purple-700', label: 'In Transit' },
+    delivered: { color: 'bg-slate-100 text-slate-600', label: 'Delivered' },
+    expired: { color: 'bg-red-50 text-red-600', label: 'Expired' },
+    cancelled: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled' },
 };
 
 export default function DonorPage() {
@@ -143,56 +142,55 @@ export default function DonorPage() {
         });
     };
 
-    const getTimeRemaining = (expiresAt: string) => {
-        const diff = new Date(expiresAt).getTime() - Date.now();
-        if (diff < 0) return 'Expired';
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        if (hours < 24) return `${hours}h remaining`;
-        return `${Math.floor(hours / 24)}d remaining`;
-    };
-
     if (!session) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-amber-50">
-                <div className="text-center p-8 bg-white rounded-2xl shadow-xl">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Welcome to OptiMeal</h2>
-                    <p className="text-gray-600 mb-6">Please sign in to access your donor dashboard</p>
-                    <Button className="bg-green-600 hover:bg-green-700">Sign In</Button>
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-slate-100 max-w-md w-full">
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Donor Portal</h2>
+                    <p className="text-slate-500 mb-8">Sign in to manage contributions and track impact.</p>
+                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20">
+                        Sign In with Google
+                    </Button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50">
-            <div className="max-w-7xl mx-auto px-4 py-8">
-                {/* Header */}
-                <div className="flex justify-between items-center mb-8">
+        <div className="min-h-screen bg-slate-50/50 pb-20">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Donor Dashboard</h1>
-                        <p className="text-gray-600 mt-1">Manage your food donations and track impact</p>
+                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Donor Dashboard</h1>
+                        <p className="text-slate-500 mt-1">Manage food recovery and visualize your community impact.</p>
                     </div>
                     <Button
                         onClick={() => setShowForm(!showForm)}
-                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl shadow-lg"
+                        className={`px-6 py-2.5 rounded-full font-medium transition-all shadow-lg hover:shadow-xl ${showForm
+                            ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 shadow-none'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                            }`}
                     >
-                        {showForm ? 'Cancel' : '+ New Listing'}
+                        {showForm ? <span className="flex items-center gap-2"><X size={18} /> Cancel</span> : <span className="flex items-center gap-2"><Plus size={18} /> New Listing</span>}
                     </Button>
                 </div>
 
-                {/* Impact Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                {/* Impact Overview Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                     <ImpactCard
                         title="Meals Rescued"
                         value={impact?.total_meals_rescued ?? 0}
                         icon="🍽️"
                         colorScheme="green"
+                        trend={{ value: 12, isPositive: true }}
                     />
                     <ImpactCard
                         title="Food Saved"
                         value={`${(impact?.total_kg_saved ?? 0).toFixed(1)} kg`}
                         icon="📦"
                         colorScheme="amber"
+                        trend={{ value: 5.4, isPositive: true }}
                     />
                     <ImpactCard
                         title="CO₂ Reduced"
@@ -208,252 +206,215 @@ export default function DonorPage() {
                     />
                 </div>
 
-                {/* Create Listing Form */}
+                {/* Create Listing Form Panel */}
                 {showForm && (
-                    <div className="bg-white rounded-2xl p-8 shadow-xl mb-8 border border-gray-100">
-                        <h2 className="text-xl font-bold text-gray-900 mb-6">Create Food Listing</h2>
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Food Title *
-                                    </label>
-                                    <Input
-                                        placeholder="e.g., 20 Fresh Bagels"
-                                        value={formData.title}
-                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                        required
-                                        className="rounded-xl"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Category *
-                                    </label>
-                                    <select
-                                        value={formData.food_category}
-                                        onChange={e => setFormData({ ...formData, food_category: e.target.value as FoodCategory })}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                        required
-                                    >
-                                        {FOOD_CATEGORIES.map(cat => (
-                                            <option key={cat.value} value={cat.value}>{cat.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Quantity (kg) *
-                                    </label>
-                                    <Input
-                                        type="number"
-                                        step="0.1"
-                                        min="0.1"
-                                        placeholder="e.g., 5.0"
-                                        value={formData.quantity_kg ?? ''}
-                                        onChange={e => setFormData({ ...formData, quantity_kg: parseFloat(e.target.value) })}
-                                        required
-                                        className="rounded-xl"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Expires At *
-                                    </label>
-                                    <Input
-                                        type="datetime-local"
-                                        value={formData.expires_at}
-                                        onChange={e => setFormData({ ...formData, expires_at: e.target.value })}
-                                        required
-                                        className="rounded-xl"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Pickup Window Start *
-                                    </label>
-                                    <Input
-                                        type="datetime-local"
-                                        value={formData.pickup_window_start}
-                                        onChange={e => setFormData({ ...formData, pickup_window_start: e.target.value })}
-                                        required
-                                        className="rounded-xl"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Pickup Window End *
-                                    </label>
-                                    <Input
-                                        type="datetime-local"
-                                        value={formData.pickup_window_end}
-                                        onChange={e => setFormData({ ...formData, pickup_window_end: e.target.value })}
-                                        required
-                                        className="rounded-xl"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Description
-                                </label>
-                                <textarea
-                                    placeholder="Additional details about the food..."
-                                    value={formData.description}
-                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    rows={3}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Pickup Address
-                                </label>
-                                <Input
-                                    placeholder="123 Main St, City"
-                                    value={formData.address}
-                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
-                                    className="rounded-xl"
-                                />
-                            </div>
-
-                            <div className="flex items-center gap-6">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.requires_refrigeration}
-                                        onChange={e => setFormData({ ...formData, requires_refrigeration: e.target.checked })}
-                                        className="w-4 h-4 text-green-600 rounded"
-                                    />
-                                    <span className="text-sm text-gray-700">Requires Refrigeration</span>
-                                </label>
-                            </div>
-
-                            <div className="flex gap-4">
+                    <div className="bg-white rounded-2xl p-8 shadow-xl shadow-slate-200/50 mb-10 border border-slate-100 animate-fade-in-up">
+                        <div className="max-w-3xl mx-auto">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold text-slate-900">Create New Listing</h2>
                                 <Button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl"
-                                >
-                                    {submitting ? 'Creating...' : 'Create Listing'}
-                                </Button>
-                                <Button
-                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => setShowForm(false)}
-                                    variant="outline"
-                                    className="px-8 py-3 rounded-xl"
+                                    className="text-slate-400 hover:text-slate-600"
                                 >
-                                    Cancel
+                                    <X size={20} />
                                 </Button>
                             </div>
-                        </form>
+                            <form onSubmit={handleSubmit} className="space-y-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-700">Item Title *</label>
+                                            <Input
+                                                placeholder="e.g., Assorted Bagels (2 Dozen)"
+                                                value={formData.title}
+                                                onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                                required
+                                                className="rounded-lg border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium py-2.5"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-700">Category *</label>
+                                            <select
+                                                value={formData.food_category}
+                                                onChange={e => setFormData({ ...formData, food_category: e.target.value as FoodCategory })}
+                                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all bg-white"
+                                                required
+                                            >
+                                                {FOOD_CATEGORIES.map(cat => (
+                                                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-700">Description</label>
+                                            <textarea
+                                                placeholder="Details about packaging, condition..."
+                                                value={formData.description}
+                                                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                                rows={4}
+                                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all resize-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-700">Weight (kg) *</label>
+                                            <Input
+                                                type="number"
+                                                step="0.1"
+                                                placeholder="Total estimated weight"
+                                                value={formData.quantity_kg ?? ''}
+                                                onChange={e => setFormData({ ...formData, quantity_kg: parseFloat(e.target.value) })}
+                                                required
+                                                className="rounded-lg border-slate-200 py-2.5"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-700">Pickup Address *</label>
+                                            <div className="relative">
+                                                <MapPin className="absolute left-3 top-3 text-slate-400" size={16} />
+                                                <Input
+                                                    placeholder="Enter full address"
+                                                    value={formData.address}
+                                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
+                                                    className="pl-9 rounded-lg border-slate-200 py-2.5"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Window Start</label>
+                                                <Input
+                                                    type="datetime-local"
+                                                    value={formData.pickup_window_start}
+                                                    onChange={e => setFormData({ ...formData, pickup_window_start: e.target.value })}
+                                                    required
+                                                    className="rounded-lg text-sm"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Window End</label>
+                                                <Input
+                                                    type="datetime-local"
+                                                    value={formData.pickup_window_end}
+                                                    onChange={e => setFormData({ ...formData, pickup_window_end: e.target.value })}
+                                                    required
+                                                    className="rounded-lg text-sm"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
+                                    <Button
+                                        type="button"
+                                        onClick={() => setShowForm(false)}
+                                        variant="ghost"
+                                        className="text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        disabled={submitting}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white min-w-[140px] shadow-lg shadow-emerald-600/20"
+                                    >
+                                        {submitting ? 'Publishing...' : 'Publish Listing'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 )}
 
-                {/* Listings Table */}
-                <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    <div className="p-6 border-b border-gray-100">
-                        <h2 className="text-xl font-bold text-gray-900">Your Listings</h2>
-                    </div>
+                {/* Listings Section */}
+                <div>
+                    <h2 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                        <Package size={20} className="text-emerald-600" />
+                        Active Listings
+                    </h2>
 
                     {loading ? (
-                        <div className="p-8 text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-                            <p className="mt-4 text-gray-500">Loading listings...</p>
+                        <div className="py-20 text-center">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600 mx-auto opacity-50"></div>
                         </div>
                     ) : listings.length === 0 ? (
-                        <div className="p-12 text-center">
-                            <span className="text-5xl">📦</span>
-                            <h3 className="mt-4 text-lg font-medium text-gray-900">No listings yet</h3>
-                            <p className="mt-2 text-gray-500">Create your first food listing to start rescuing meals!</p>
-                            <Button
-                                onClick={() => setShowForm(true)}
-                                className="mt-6 bg-green-600 hover:bg-green-700"
-                            >
-                                Create Listing
+                        <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
+                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">🥗</div>
+                            <h3 className="text-slate-900 font-medium text-lg">No active listings</h3>
+                            <p className="text-slate-500 mb-6 max-w-sm mx-auto">You haven't posted any food donations yet. Start observing food waste reduction today!</p>
+                            <Button onClick={() => setShowForm(true)} variant="outline">
+                                Create First Listing
                             </Button>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Food Item
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Category
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Quantity
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Expires
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {listings.map(listing => (
-                                        <tr key={listing.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4">
-                                                <div>
-                                                    <p className="font-medium text-gray-900">{listing.title}</p>
-                                                    {listing.description && (
-                                                        <p className="text-sm text-gray-500 truncate max-w-xs">{listing.description}</p>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm text-gray-600">
-                                                    {FOOD_CATEGORIES.find(c => c.value === listing.food_category)?.label ?? listing.food_category}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="font-medium">{listing.quantity_kg} kg</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div>
-                                                    <p className="text-sm text-gray-900">{formatDate(listing.expires_at)}</p>
-                                                    <p className="text-xs text-gray-500">{getTimeRemaining(listing.expires_at)}</p>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[listing.status]}`}>
-                                                    {listing.status.replace('_', ' ')}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {listing.status === 'available' && (
-                                                    <Button
-                                                        onClick={() => handleCancel(listing.id)}
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="text-red-600 hover:bg-red-50"
-                                                    >
-                                                        Cancel
-                                                    </Button>
-                                                )}
-                                                {listing.status === 'delivered' && (
-                                                    <span className="text-green-600 text-sm">✓ Rescued</span>
-                                                )}
-                                            </td>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 border-b border-slate-100 text-left">
+                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Item Details</th>
+                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Stats</th>
+                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Timing</th>
+                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {listings.map(listing => (
+                                            <tr key={listing.id} className="hover:bg-slate-50/80 transition-colors group">
+                                                <td className="px-6 py-4">
+                                                    <div>
+                                                        <p className="font-semibold text-slate-900">{listing.title}</p>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200">
+                                                                {FOOD_CATEGORIES.find(c => c.value === listing.food_category)?.label}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-1 text-slate-600">
+                                                        <Leaf size={14} className="text-emerald-500" />
+                                                        <span className="font-medium">{listing.quantity_kg} kg</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-2 text-sm text-slate-700">
+                                                            <Clock size={14} className="text-slate-400" />
+                                                            {formatDate(listing.pickup_window_end)}
+                                                        </div>
+                                                        <span className="text-xs text-amber-600 font-medium">Expires {formatDate(listing.expires_at)}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_DATA[listing.status].color}`}>
+                                                        {STATUS_DATA[listing.status].label}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    {listing.status === 'available' && (
+                                                        <Button
+                                                            onClick={() => handleCancel(listing.id)}
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8"
+                                                        >
+                                                            Cancel
+                                                        </Button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
                 </div>
