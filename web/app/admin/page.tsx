@@ -104,13 +104,24 @@ export default function AdminPage() {
         return colors[role] || 'bg-gray-100 text-gray-800';
     };
 
-    if (!session) {
+    if (!session || session.user.role !== 'admin') {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-gray-100">
                 <div className="text-center p-8 bg-white rounded-2xl shadow-xl">
                     <h2 className="text-2xl font-bold text-gray-800 mb-4">Admin Access Required</h2>
-                    <p className="text-gray-600 mb-6">Please sign in with an admin account</p>
-                    <Button className="bg-red-600 hover:bg-red-700">Sign In</Button>
+                    <p className="text-gray-600 mb-6">You must be an administrator to view this page.</p>
+                    <div className="flex flex-col gap-3">
+                        {!session ? (
+                            <Button className="bg-emerald-600 hover:bg-emerald-700">Sign In</Button>
+                        ) : (
+                            <p className="text-sm text-red-500 bg-red-50 py-2 px-4 rounded-lg">
+                                Current role: {session.user.role || 'user'}
+                            </p>
+                        )}
+                        <Button variant="outline" onClick={() => window.location.href = '/'}>
+                            Return Home
+                        </Button>
+                    </div>
                 </div>
             </div>
         );

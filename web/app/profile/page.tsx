@@ -5,10 +5,12 @@ import { useSession, signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { fetcher, putData, postData } from '@/lib/api';
+import { useToast } from '@/components/ui/toast';
 import { User, Settings, Activity, LogOut, Award, MapPin, Phone as PhoneIcon, Mail } from 'lucide-react';
 
 export default function ProfilePage() {
     const { data: session } = useSession();
+    const { success, error } = useToast();
     const [activeTab, setActiveTab] = useState('overview');
     const [profile, setProfile] = useState({
         name: '',
@@ -76,9 +78,9 @@ export default function ProfilePage() {
 
         try {
             await putData(`/api/users/${userId}`, profile);
-            alert("Profile Updated Successfully!");
+            success("Profile Updated", "Your profile information has been saved successfully.");
         } catch (err) {
-            alert("Update failed. Please try again.");
+            error("Update Failed", "Could not save changes. Please try again.");
         }
     };
 
@@ -223,8 +225,8 @@ export default function ProfilePage() {
                                 <button
                                     onClick={() => setActiveTab('overview')}
                                     className={`flex items-center px-6 py-4 text-sm font-medium transition-colors ${activeTab === 'overview'
-                                            ? 'bg-emerald-50 text-emerald-600 border-l-4 border-emerald-600'
-                                            : 'text-slate-600 hover:bg-slate-50'
+                                        ? 'bg-emerald-50 text-emerald-600 border-l-4 border-emerald-600'
+                                        : 'text-slate-600 hover:bg-slate-50'
                                         }`}
                                 >
                                     <Activity className="w-4 h-4 mr-3" />
@@ -233,8 +235,8 @@ export default function ProfilePage() {
                                 <button
                                     onClick={() => setActiveTab('settings')}
                                     className={`flex items-center px-6 py-4 text-sm font-medium transition-colors ${activeTab === 'settings'
-                                            ? 'bg-emerald-50 text-emerald-600 border-l-4 border-emerald-600'
-                                            : 'text-slate-600 hover:bg-slate-50'
+                                        ? 'bg-emerald-50 text-emerald-600 border-l-4 border-emerald-600'
+                                        : 'text-slate-600 hover:bg-slate-50'
                                         }`}
                                 >
                                     <Settings className="w-4 h-4 mr-3" />

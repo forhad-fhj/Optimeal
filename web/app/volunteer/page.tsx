@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
 import { listingsApi, routesApi, deliveriesApi, usersApi } from '@/lib/api';
 import { FoodListing, RoutePoint, RouteResponse, UserBrief, DeliveryStats, FoodCategory } from '@/types';
 import { MapPin, Navigation, Clock, CheckCircle2, Truck, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
@@ -24,6 +25,7 @@ const CATEGORY_ICONS: Record<FoodCategory, string> = {
 
 export default function VolunteerPage() {
     const { data: session } = useSession();
+    const { success, error } = useToast();
     const [position, setPosition] = useState<[number, number] | undefined>(undefined);
     const [listings, setListings] = useState<FoodListing[]>([]);
     const [charities, setCharities] = useState<UserBrief[]>([]);
@@ -103,7 +105,7 @@ export default function VolunteerPage() {
 
     const calculateRoute = async () => {
         if (!position || selectedListings.length === 0 || !selectedCharity) {
-            alert('Please select listings and a charity destination.');
+            error('Missing Information', 'Please select listings and a charity destination.');
             return;
         }
 
@@ -123,7 +125,7 @@ export default function VolunteerPage() {
             });
         } catch (err) {
             console.error('Failed to calculate route:', err);
-            alert('Could not calculate optimal route.');
+            error('Route Calculation Failed', 'Could not calculate optimal route. Please try again.');
         } finally {
             setCalculating(false);
         }
@@ -141,14 +143,14 @@ export default function VolunteerPage() {
                 optimized_route_data: route,
             });
 
-            alert('Delivery claimed! Check your dashboard for details.');
+            success('Delivery Claimed!', 'Check your dashboard for delivery details.');
             setSelectedListings([]);
             setRoute([]);
             setRouteInfo(null);
             fetchData();
         } catch (err) {
             console.error('Failed to claim delivery:', err);
-            alert('Failed to claim delivery. Please try again.');
+            error('Claim Failed', 'Failed to claim delivery. Please try again.');
         } finally {
             setClaiming(false);
         }
@@ -248,19 +250,34 @@ export default function VolunteerPage() {
                     {/* Action Panel */}
                     <div className="p-5 space-y-4 bg-slate-50/50 border-b border-slate-100">
                         <div>
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
-                                Delivery Destination
-                            </label>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+                                    Delivery Destination
+                                </label>
+                                <button
+                                    onClick={fetchData}
+                                    className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                                    disabled={loading}
+                                >
+                                    {loading ? 'Refreshing...' : 'Refresh Data'}
+                                </button>
+                            </div>
                             <select
                                 value={selectedCharity}
                                 onChange={e => setSelectedCharity(e.target.value)}
                                 className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                disabled={charities.length === 0}
                             >
-                                <option value="">Select Charity...</option>
+                                <option value="">{charities.length === 0 ? 'No charities available' : 'Select Charity...'}</option>
                                 {charities.map(c => (
                                     <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                             </select>
+                            {charities.length === 0 && !loading && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                    No registered charities found.
+                                </p>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -296,8 +313,11 @@ export default function VolunteerPage() {
 
                     {/* Listings Feed */}
                     <div className="p-2">
-                        <h3 className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 bg-white/95 backdrop-blur z-10">
-                            Nearby Pickups
+                        <h3 className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 bg-white/95 backdrop-blur z-10 flex justify-between items-center">
+                            <span>Nearby Pickups</span>
+                            <span className="text-xs normal-case font-normal text-slate-400">
+                                {listings.length} found
+                            </span>
                         </h3>
                         {loading ? (
                             <div className="py-10 text-center">
@@ -306,7 +326,16 @@ export default function VolunteerPage() {
                         ) : listings.length === 0 ? (
                             <div className="text-center py-10 px-4">
                                 <span className="text-4xl block mb-2">🌿</span>
-                                <p className="text-slate-500 text-sm">No food to rescue nearby right now.</p>
+                                <p className="text-slate-500 text-sm font-medium">No food to rescue nearby.</p>
+                                <p className="text-slate-400 text-xs mt-1">Try refreshing or checking back later.</p>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-4"
+                                    onClick={fetchData}
+                                >
+                                    Refresh Listings
+                                </Button>
                             </div>
                         ) : (
                             <div className="space-y-2">
@@ -317,8 +346,8 @@ export default function VolunteerPage() {
                                             key={listing.id}
                                             onClick={() => toggleListing(listing.id)}
                                             className={`p-3 rounded-xl border transition-all cursor-pointer hover:shadow-md ${isSelected
-                                                    ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100'
-                                                    : 'bg-white border-slate-100 hover:border-blue-200'
+                                                ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100'
+                                                : 'bg-white border-slate-100 hover:border-blue-200'
                                                 }`}
                                         >
                                             <div className="flex items-start gap-3">
@@ -335,8 +364,8 @@ export default function VolunteerPage() {
                                                     <p className="text-xs text-slate-500 mt-0.5">{listing.quantity_kg} kg • {listing.address?.split(',')[0]}</p>
                                                     <div className="flex items-center gap-2 mt-2">
                                                         <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded ${new Date(listing.expires_at).getTime() - Date.now() < 3600000
-                                                                ? 'bg-rose-50 text-rose-600'
-                                                                : 'bg-slate-100 text-slate-600'
+                                                            ? 'bg-rose-50 text-rose-600'
+                                                            : 'bg-slate-100 text-slate-600'
                                                             }`}>
                                                             <Clock size={10} />
                                                             {getTimeRemaining(listing.expires_at)}
