@@ -1,4 +1,8 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// In production, use relative URLs so Next.js rewrites proxy to the backend (no CORS).
+// In dev, call localhost directly.
+const API_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? ''  // production: relative URL → proxied by Next.js rewrites
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
 
 interface FetchOptions {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
