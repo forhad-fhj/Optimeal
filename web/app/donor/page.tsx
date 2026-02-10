@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { listingsApi, analyticsApi } from '@/lib/api';
@@ -9,6 +10,8 @@ import { FoodListing, ListingCreate, ListingStats, ImpactSummary, FoodCategory, 
 import ImpactCard from '@/components/ImpactCard';
 import { useToast } from '@/components/ui/toast';
 import { Plus, X, MapPin, Clock, Package, Leaf } from 'lucide-react';
+
+const LocationPicker = dynamic(() => import('@/components/LocationPicker'), { ssr: false });
 
 const FOOD_CATEGORIES: { value: FoodCategory; label: string }[] = [
     { value: 'prepared', label: '🍲 Prepared Meals' },
@@ -41,7 +44,14 @@ export default function DonorPage() {
     const [showForm, setShowForm] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    const [formData, setFormData] = useState<Partial<ListingCreate>>({
+    // Helper: get today and tomorrow as YYYY-MM-DD
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const toDateStr = (d: Date) => d.toISOString().split('T')[0];
+    const toTimeStr = (d: Date) => d.toTimeString().slice(0, 5);
+
+    const [formData, setFormData] = useState<Partial<ListingCreate> & { location_lat?: number; location_lng?: number }>({
         title: '',
         description: '',
         food_category: 'mixed',
@@ -52,7 +62,15 @@ export default function DonorPage() {
         address: '',
         requires_refrigeration: false,
         allergens: [],
+        location_lat: undefined,
+        location_lng: undefined,
     });
+
+    // Separate date/time state for better UX
+    const [startDate, setStartDate] = useState(toDateStr(today));
+    const [startTime, setStartTime] = useState('09:00');
+    const [endDate, setEndDate] = useState(toDateStr(tomorrow));
+    const [endTime, setEndTime] = useState('17:00');
 
     const userId = typeof window !== 'undefined' ? localStorage.getItem('optimeal_user_id') : null;
 
@@ -90,10 +108,18 @@ export default function DonorPage() {
 
         setSubmitting(true);
         try {
+            // Combine date+time into ISO strings
+            const pickupStart = new Date(`${startDate}T${startTime}`).toISOString();
+            const pickupEnd = new Date(`${endDate}T${endTime}`).toISOString();
+            const expiresAt = pickupEnd; // expires when pickup window ends
+
             await listingsApi.create({
                 ...formData,
                 donor_id: userId,
                 quantity_kg: Number(formData.quantity_kg),
+                pickup_window_start: pickupStart,
+                pickup_window_end: pickupEnd,
+                expires_at: expiresAt,
             });
 
             setShowForm(false);
@@ -273,35 +299,55 @@ export default function DonorPage() {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium text-slate-700">Pickup Address *</label>
-                                            <div className="relative">
-                                                <MapPin className="absolute left-3 top-3 text-slate-400" size={16} />
-                                                <Input
-                                                    placeholder="Enter full address"
-                                                    value={formData.address}
-                                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
-                                                    className="pl-9 rounded-lg border-slate-200 py-2.5"
-                                                    required
-                                                />
-                                            </div>
+                                            <label className="text-sm font-medium text-slate-700">Pickup Location *</label>
+                                            <LocationPicker
+                                                address={formData.address || ''}
+                                                lat={formData.location_lat}
+                                                lng={formData.location_lng}
+                                                onLocationChange={({ address, lat, lng }) => {
+                                                    setFormData({ ...formData, address, location_lat: lat, location_lng: lng });
+                                                }}
+                                            />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Window Start</label>
+                                                <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Start Date</label>
                                                 <Input
-                                                    type="datetime-local"
-                                                    value={formData.pickup_window_start}
-                                                    onChange={e => setFormData({ ...formData, pickup_window_start: e.target.value })}
+                                                    type="date"
+                                                    value={startDate}
+                                                    onChange={e => setStartDate(e.target.value)}
                                                     required
                                                     className="rounded-lg text-sm"
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Window End</label>
+                                                <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Start Time</label>
                                                 <Input
-                                                    type="datetime-local"
-                                                    value={formData.pickup_window_end}
-                                                    onChange={e => setFormData({ ...formData, pickup_window_end: e.target.value })}
+                                                    type="time"
+                                                    value={startTime}
+                                                    onChange={e => setStartTime(e.target.value)}
+                                                    required
+                                                    className="rounded-lg text-sm"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider">End Date</label>
+                                                <Input
+                                                    type="date"
+                                                    value={endDate}
+                                                    onChange={e => setEndDate(e.target.value)}
+                                                    required
+                                                    className="rounded-lg text-sm"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider">End Time</label>
+                                                <Input
+                                                    type="time"
+                                                    value={endTime}
+                                                    onChange={e => setEndTime(e.target.value)}
                                                     required
                                                     className="rounded-lg text-sm"
                                                 />

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { listingsApi, routesApi, deliveriesApi, usersApi } from '@/lib/api';
 import { FoodListing, RoutePoint, RouteResponse, UserBrief, DeliveryStats, FoodCategory } from '@/types';
-import { MapPin, Navigation, Clock, CheckCircle2, Truck, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { MapPin, Navigation, Clock, CheckCircle2, Truck, ChevronLeft, ChevronRight, Menu, Search, Crosshair } from 'lucide-react';
 
 // Dynamic import for Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), { ssr: false });
@@ -39,6 +39,9 @@ export default function VolunteerPage() {
     const [calculating, setCalculating] = useState(false);
     const [claiming, setClaiming] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [locationDenied, setLocationDenied] = useState(false);
+    const [locationSearch, setLocationSearch] = useState('');
+    const [searchingLocation, setSearchingLocation] = useState(false);
 
     const userId = typeof window !== 'undefined' ? localStorage.getItem('optimeal_user_id') : null;
 
@@ -48,13 +51,42 @@ export default function VolunteerPage() {
             (pos) => {
                 const { latitude, longitude } = pos.coords;
                 setPosition([latitude, longitude]);
+                setLocationDenied(false);
             },
             (err) => {
                 console.error('Geolocation error:', err);
-                setPosition([23.8103, 90.4125]); // Default: Dhaka
+                setLocationDenied(true);
+                // Don't auto-set a default — let user search
             }
         );
     }, []);
+
+    // Search location by address
+    const searchLocation = async (query: string) => {
+        if (!query.trim()) return;
+        setSearchingLocation(true);
+        try {
+            const res = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+                { headers: { 'Accept-Language': 'en' } }
+            );
+            const data = await res.json();
+            if (data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lng = parseFloat(data[0].lon);
+                setPosition([lat, lng]);
+                setLocationDenied(false);
+                setLocationSearch(data[0].display_name);
+                success('Location Set', `Showing food near ${data[0].display_name.split(',')[0]}`);
+            } else {
+                error('Not Found', 'Could not find that location. Try a different search.');
+            }
+        } catch {
+            error('Search Failed', 'Could not search for location. Please try again.');
+        } finally {
+            setSearchingLocation(false);
+        }
+    };
 
     // Fetch data when position is available
     const fetchData = useCallback(async () => {
@@ -247,6 +279,42 @@ export default function VolunteerPage() {
 
                 {/* Main Content Areas */}
                 <div className="flex-grow overflow-y-auto">
+                    {/* Location Search — shown when geolocation is denied */}
+                    {locationDenied && (
+                        <div className="p-4 bg-amber-50 border-b border-amber-100">
+                            <div className="flex items-center gap-2 mb-2">
+                                <MapPin size={16} className="text-amber-600" />
+                                <p className="text-sm font-medium text-amber-800">Location access denied</p>
+                            </div>
+                            <p className="text-xs text-amber-600 mb-3">Enter your city or address to find nearby food.</p>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    searchLocation(locationSearch);
+                                }}
+                                className="flex gap-2"
+                            >
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-2.5 top-2 text-amber-400" size={14} />
+                                    <input
+                                        type="text"
+                                        value={locationSearch}
+                                        onChange={(e) => setLocationSearch(e.target.value)}
+                                        placeholder="e.g. Sylhet, Bangladesh"
+                                        className="w-full pl-8 pr-3 py-1.5 border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-400 bg-white transition-all"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={searchingLocation}
+                                    className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700 transition-colors disabled:opacity-50"
+                                >
+                                    {searchingLocation ? '...' : 'Search'}
+                                </button>
+                            </form>
+                        </div>
+                    )}
+
                     {/* Action Panel */}
                     <div className="p-5 space-y-4 bg-slate-50/50 border-b border-slate-100">
                         <div>
