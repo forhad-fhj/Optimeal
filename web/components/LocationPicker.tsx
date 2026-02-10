@@ -96,6 +96,7 @@ export default function LocationPicker({ address, lat, lng, onLocationChange }: 
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         if (searchQuery.trim()) {
             forwardGeocode(searchQuery.trim());
         }
