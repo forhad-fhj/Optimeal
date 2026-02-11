@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 import math
 
@@ -182,7 +182,7 @@ async def create_listing(listing_data: ListingCreate, db: AsyncSession = Depends
         if listing_data.pickup_window_start >= listing_data.pickup_window_end:
             raise HTTPException(status_code=400, detail="Pickup window start must be before end")
         
-        if listing_data.expires_at <= datetime.utcnow():
+        if listing_data.expires_at <= datetime.now(datetime.timezone.utc):
             raise HTTPException(status_code=400, detail="Expiration must be in the future")
         
         # Use donor's location if listing location not provided
