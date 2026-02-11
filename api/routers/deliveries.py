@@ -205,7 +205,7 @@ async def create_delivery(
             volunteer_id=delivery_data.volunteer_id,
             charity_id=delivery_data.charity_id,
             listing_ids=[lid for lid in delivery_data.listing_ids],
-            optimized_route_data=[stop.model_dump() for stop in delivery_data.optimized_route_data] if delivery_data.optimized_route_data else None,
+            optimized_route_data=[stop.model_dump(mode='json') for stop in delivery_data.optimized_route_data] if delivery_data.optimized_route_data else None,
             status=DeliveryStatus.assigned,
             pickup_eta=pickup_eta,
             delivery_eta=delivery_eta,
@@ -227,7 +227,7 @@ async def create_delivery(
             route_assignment = RouteAssignment(
                 delivery_id=delivery.id,
                 volunteer_id=delivery_data.volunteer_id,
-                route_json=[stop.model_dump() for stop in delivery_data.optimized_route_data],
+                route_json=[stop.model_dump(mode='json') for stop in delivery_data.optimized_route_data],
                 total_distance_km=total_distance or 0,
                 estimated_duration_minutes=estimated_duration or 0,
                 status=RouteStatus.planned
