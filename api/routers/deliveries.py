@@ -137,112 +137,126 @@ async def create_delivery(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new delivery (claim listings for delivery)"""
-    # Verify volunteer
-    stmt = select(User).where(
-        and_(
-            User.id == delivery_data.volunteer_id,
-            User.role == UserRole.volunteer,
-            User.is_deleted == False
+    try:
+        # Verify volunteer
+        stmt = select(User).where(
+            and_(
+                User.id == delivery_data.volunteer_id,
+                User.role == UserRole.volunteer,
+                User.is_deleted == False
+            )
         )
-    )
-    result = await db.execute(stmt)
-    volunteer = result.scalars().first()
-    
-    if not volunteer:
-        raise HTTPException(status_code=404, detail="Volunteer not found")
-    
-    if not volunteer.is_available:
-        raise HTTPException(status_code=400, detail="Volunteer is not available")
-    
-    # Verify charity
-    stmt = select(User).where(
-        and_(
-            User.id == delivery_data.charity_id,
-            User.role == UserRole.charity,
-            User.is_deleted == False
+        result = await db.execute(stmt)
+        volunteer = result.scalars().first()
+        
+        if not volunteer:
+            raise HTTPException(status_code=404, detail="Volunteer not found")
+        
+        # Auto-fix: if checking availability from backend, ensuring we don't block if they just went online
+        # But for strictness, valid.
+        if not volunteer.is_available:
+            raise HTTPException(status_code=400, detail="Volunteer is not available")
+        
+        # Verify charity
+        stmt = select(User).where(
+            and_(
+                User.id == delivery_data.charity_id,
+                User.role == UserRole.charity,
+                User.is_deleted == False
+            )
         )
-    )
-    result = await db.execute(stmt)
-    charity = result.scalars().first()
-    
-    if not charity:
-        raise HTTPException(status_code=404, detail="Charity not found")
-    
-    # Verify and reserve listings
-    stmt = select(FoodListing).where(
-        and_(
-            FoodListing.id.in_(delivery_data.listing_ids),
-            FoodListing.status == ListingStatus.available,
-            FoodListing.is_deleted == False
+        result = await db.execute(stmt)
+        charity = result.scalars().first()
+        
+        if not charity:
+            raise HTTPException(status_code=404, detail="Charity not found")
+        
+        # Verify and reserve listings
+        stmt = select(FoodListing).where(
+            and_(
+                FoodListing.id.in_(delivery_data.listing_ids),
+                FoodListing.status == ListingStatus.available,
+                FoodListing.is_deleted == False
+            )
         )
-    )
-    result = await db.execute(stmt)
-    listings = result.scalars().all()
-    
-    if len(listings) != len(delivery_data.listing_ids):
-        raise HTTPException(
-            status_code=400,
-            detail="Some listings are not available"
-        )
-    
-    # Calculate ETAs based on route data
-    pickup_eta = None
-    delivery_eta = None
-    total_distance = None
-    estimated_duration = None
-    
-    if delivery_data.optimized_route_data:
-        # Sum distances from route
-        estimated_duration = len(delivery_data.optimized_route_data) * 15  # 15 min per stop estimate
-        pickup_eta = datetime.utcnow() + timedelta(minutes=15)
-        delivery_eta = datetime.utcnow() + timedelta(minutes=estimated_duration)
-    
-    # Create delivery
-    delivery = Delivery(
-        volunteer_id=delivery_data.volunteer_id,
-        charity_id=delivery_data.charity_id,
-        listing_ids=[lid for lid in delivery_data.listing_ids],
-        optimized_route_data=[stop.model_dump() for stop in delivery_data.optimized_route_data] if delivery_data.optimized_route_data else None,
-        status=DeliveryStatus.assigned,
-        pickup_eta=pickup_eta,
-        delivery_eta=delivery_eta,
-        total_distance_km=total_distance,
-        estimated_duration_minutes=estimated_duration
-    )
-    
-    db.add(delivery)
-    
-    # Update listings status
-    for listing in listings:
-        listing.status = ListingStatus.assigned
-        listing.assigned_volunteer_id = delivery_data.volunteer_id
-        listing.assigned_charity_id = delivery_data.charity_id
-        listing.updated_at = datetime.utcnow()
-    
-    # Create route assignment if route data provided
-    if delivery_data.optimized_route_data:
-        route_assignment = RouteAssignment(
-            delivery_id=delivery.id,
+        result = await db.execute(stmt)
+        listings = result.scalars().all()
+        
+        if len(listings) != len(delivery_data.listing_ids):
+            raise HTTPException(
+                status_code=400,
+                detail="Some listings are not available"
+            )
+        
+        # Calculate ETAs based on route data
+        pickup_eta = None
+        delivery_eta = None
+        total_distance = None
+        estimated_duration = None
+        
+        if delivery_data.optimized_route_data:
+            # Sum distances from route
+            estimated_duration = len(delivery_data.optimized_route_data) * 15  # 15 min per stop estimate
+            pickup_eta = datetime.utcnow() + timedelta(minutes=15)
+            delivery_eta = datetime.utcnow() + timedelta(minutes=estimated_duration)
+        
+        # Create delivery
+        delivery = Delivery(
             volunteer_id=delivery_data.volunteer_id,
-            route_json=[stop.model_dump() for stop in delivery_data.optimized_route_data],
-            total_distance_km=total_distance or 0,
-            estimated_duration_minutes=estimated_duration or 0,
-            status=RouteStatus.planned
+            charity_id=delivery_data.charity_id,
+            listing_ids=[lid for lid in delivery_data.listing_ids],
+            optimized_route_data=[stop.model_dump() for stop in delivery_data.optimized_route_data] if delivery_data.optimized_route_data else None,
+            status=DeliveryStatus.assigned,
+            pickup_eta=pickup_eta,
+            delivery_eta=delivery_eta,
+            total_distance_km=total_distance,
+            estimated_duration_minutes=estimated_duration
         )
-        db.add(route_assignment)
-    
-    await db.commit()
-    await db.refresh(delivery)
-    
-    # Load relationships
-    stmt = select(Delivery).options(
-        selectinload(Delivery.volunteer),
-        selectinload(Delivery.charity)
-    ).where(Delivery.id == delivery.id)
-    result = await db.execute(stmt)
-    delivery = result.scalars().first()
-    
-    return delivery
+        
+        db.add(delivery)
+        
+        # Update listings status
+        for listing in listings:
+            listing.status = ListingStatus.assigned
+            listing.assigned_volunteer_id = delivery_data.volunteer_id
+            listing.assigned_charity_id = delivery_data.charity_id
+            listing.updated_at = datetime.utcnow()
+        
+        # Create route assignment if route data provided
+        if delivery_data.optimized_route_data:
+            route_assignment = RouteAssignment(
+                delivery_id=delivery.id,
+                volunteer_id=delivery_data.volunteer_id,
+                route_json=[stop.model_dump() for stop in delivery_data.optimized_route_data],
+                total_distance_km=total_distance or 0,
+                estimated_duration_minutes=estimated_duration or 0,
+                status=RouteStatus.planned
+            )
+            db.add(route_assignment)
+        
+        await db.commit()
+        await db.refresh(delivery)
+        
+        # Load relationships
+        stmt = select(Delivery).options(
+            selectinload(Delivery.volunteer),
+            selectinload(Delivery.charity)
+        ).where(Delivery.id == delivery.id)
+        result = await db.execute(stmt)
+        delivery = result.scalars().first()
+        
+        return delivery
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        try:
+            await db.rollback()
+        except:
+            pass
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 @router.put("/{delivery_id}/status", response_model=DeliveryResponse)
