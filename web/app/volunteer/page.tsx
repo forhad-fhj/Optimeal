@@ -168,6 +168,12 @@ export default function VolunteerPage() {
 
         setClaiming(true);
         try {
+            // Auto-set as available if not already
+            if (!isAvailable) {
+                await usersApi.toggleAvailability(userId, true);
+                setIsAvailable(true);
+            }
+
             await deliveriesApi.create({
                 volunteer_id: userId,
                 charity_id: selectedCharity,
