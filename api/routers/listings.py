@@ -190,15 +190,21 @@ async def create_listing(listing_data: ListingCreate, db: AsyncSession = Depends
         location_lng = listing_data.location_lng or donor.location_lng
         address = listing_data.address or donor.address
         
+        # Strip timezone info for DB compatibility (since columns are TIMESTAMP WITHOUT TIME ZONE)
+        # We ensure they are UTC first, then remove the tzinfo
+        expires_at = listing_data.expires_at.astimezone(timezone.utc).replace(tzinfo=None)
+        pickup_start = listing_data.pickup_window_start.astimezone(timezone.utc).replace(tzinfo=None)
+        pickup_end = listing_data.pickup_window_end.astimezone(timezone.utc).replace(tzinfo=None)
+        
         listing = FoodListing(
             donor_id=listing_data.donor_id,
             title=listing_data.title,
             description=listing_data.description,
             food_category=listing_data.food_category,
             quantity_kg=listing_data.quantity_kg,
-            expires_at=listing_data.expires_at,
-            pickup_window_start=listing_data.pickup_window_start,
-            pickup_window_end=listing_data.pickup_window_end,
+            expires_at=expires_at,
+            pickup_window_start=pickup_start,
+            pickup_window_end=pickup_end,
             location_lat=location_lat,
             location_lng=location_lng,
             address=address,
