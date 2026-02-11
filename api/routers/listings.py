@@ -165,70 +165,79 @@ async def get_listing(listing_id: UUID, db: AsyncSession = Depends(get_db)):
 @router.post("", response_model=ListingResponse, status_code=201)
 async def create_listing(listing_data: ListingCreate, db: AsyncSession = Depends(get_db)):
     """Create a new food listing"""
-    # Verify donor exists
-    stmt = select(User).where(User.id == listing_data.donor_id)
-    result = await db.execute(stmt)
-    donor = result.scalars().first()
-    
-    if not donor:
-        raise HTTPException(status_code=404, detail="Donor not found")
-    
-    # Auto-set role to donor if user doesn't have one yet (allow any user to donate)
-    if donor.role not in (UserRole.donor, UserRole.admin):
-        donor.role = UserRole.donor
-    
-    # Validate pickup window
-    if listing_data.pickup_window_start >= listing_data.pickup_window_end:
-        raise HTTPException(status_code=400, detail="Pickup window start must be before end")
-    
-    if listing_data.expires_at <= datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Expiration must be in the future")
-    
-    # Use donor's location if listing location not provided
-    location_lat = listing_data.location_lat or donor.location_lat
-    location_lng = listing_data.location_lng or donor.location_lng
-    address = listing_data.address or donor.address
-    
-    listing = FoodListing(
-        donor_id=listing_data.donor_id,
-        title=listing_data.title,
-        description=listing_data.description,
-        food_category=listing_data.food_category,
-        quantity_kg=listing_data.quantity_kg,
-        expires_at=listing_data.expires_at,
-        pickup_window_start=listing_data.pickup_window_start,
-        pickup_window_end=listing_data.pickup_window_end,
-        location_lat=location_lat,
-        location_lng=location_lng,
-        address=address,
-        requires_refrigeration=listing_data.requires_refrigeration,
-        allergens=listing_data.allergens,
-        handling_instructions=listing_data.handling_instructions,
-        is_recurring=listing_data.is_recurring,
-        recurrence_pattern=listing_data.recurrence_pattern,
-        status=ListingStatus.available
-    )
-    
-    db.add(listing)
-    
-    # Update donor's total donations count
-    donor.total_donations = (donor.total_donations or 0) + 1
-    
     try:
+        # Verify donor exists
+        stmt = select(User).where(User.id == listing_data.donor_id)
+        result = await db.execute(stmt)
+        donor = result.scalars().first()
+        
+        if not donor:
+            raise HTTPException(status_code=404, detail="Donor not found")
+        
+        # Auto-set role to donor if user doesn't have one yet (allow any user to donate)
+        if donor.role not in (UserRole.donor, UserRole.admin):
+            donor.role = UserRole.donor
+        
+        # Validate pickup window
+        if listing_data.pickup_window_start >= listing_data.pickup_window_end:
+            raise HTTPException(status_code=400, detail="Pickup window start must be before end")
+        
+        if listing_data.expires_at <= datetime.utcnow():
+            raise HTTPException(status_code=400, detail="Expiration must be in the future")
+        
+        # Use donor's location if listing location not provided
+        location_lat = listing_data.location_lat or donor.location_lat
+        location_lng = listing_data.location_lng or donor.location_lng
+        address = listing_data.address or donor.address
+        
+        listing = FoodListing(
+            donor_id=listing_data.donor_id,
+            title=listing_data.title,
+            description=listing_data.description,
+            food_category=listing_data.food_category,
+            quantity_kg=listing_data.quantity_kg,
+            expires_at=listing_data.expires_at,
+            pickup_window_start=listing_data.pickup_window_start,
+            pickup_window_end=listing_data.pickup_window_end,
+            location_lat=location_lat,
+            location_lng=location_lng,
+            address=address,
+            requires_refrigeration=listing_data.requires_refrigeration,
+            allergens=listing_data.allergens,
+            handling_instructions=listing_data.handling_instructions,
+            is_recurring=listing_data.is_recurring,
+            recurrence_pattern=listing_data.recurrence_pattern,
+            status=ListingStatus.available
+        )
+        
+        db.add(listing)
+        
+        # Update donor's total donations count
+        donor.total_donations = (donor.total_donations or 0) + 1
+        
         await db.commit()
         await db.refresh(listing)
+        
+        # Load donor relationship
+        stmt = select(FoodListing).options(selectinload(FoodListing.donor)).where(FoodListing.id == listing.id)
+        result = await db.execute(stmt)
+        listing = result.scalars().first()
+        
+        return listing
+
+    except HTTPException:
+        # Re-raise HTTP exceptions so they propagate correctly
+        raise
     except Exception as e:
-        await db.rollback()
+        # Catch unexpected errors, log them, and return 500 with detail
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-    
-    # Load donor relationship
-    stmt = select(FoodListing).options(selectinload(FoodListing.donor)).where(FoodListing.id == listing.id)
-    result = await db.execute(stmt)
-    listing = result.scalars().first()
-    
-    return listing
+        # Rollback transaction if active
+        try:
+            await db.rollback()
+        except:
+            pass
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 @router.put("/{listing_id}", response_model=ListingResponse)
