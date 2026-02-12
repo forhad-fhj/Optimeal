@@ -279,9 +279,9 @@ async def update_delivery_status(
     # Validate status transition
     valid_transitions = {
         DeliveryStatus.pending: [DeliveryStatus.assigned, DeliveryStatus.cancelled],
-        DeliveryStatus.assigned: [DeliveryStatus.en_route_pickup, DeliveryStatus.cancelled],
+        DeliveryStatus.assigned: [DeliveryStatus.en_route_pickup, DeliveryStatus.picked_up, DeliveryStatus.cancelled],  # Allow direct pickup
         DeliveryStatus.en_route_pickup: [DeliveryStatus.picked_up, DeliveryStatus.failed],
-        DeliveryStatus.picked_up: [DeliveryStatus.en_route_delivery, DeliveryStatus.failed],
+        DeliveryStatus.picked_up: [DeliveryStatus.en_route_delivery, DeliveryStatus.delivered, DeliveryStatus.failed],  # Allow direct delivery
         DeliveryStatus.en_route_delivery: [DeliveryStatus.delivered, DeliveryStatus.failed],
         DeliveryStatus.delivered: [DeliveryStatus.confirmed],
         DeliveryStatus.confirmed: [],
