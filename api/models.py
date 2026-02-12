@@ -86,7 +86,14 @@ class User(Base):
     # Trust & reliability
     reliability_score = Column(Float, default=100.0)
     total_deliveries = Column(Integer, default=0)
+    total_deliveries = Column(Integer, default=0)
     total_donations = Column(Integer, default=0)
+    
+    # Gamification & Stats
+    weekly_streak = Column(Integer, default=0)
+    last_delivery_date = Column(DateTime, nullable=True)
+    impact_score = Column(Integer, default=0)
+    verified_driver = Column(Boolean, default=False)
     
     # Charity-specific
     capacity_kg = Column(Float, nullable=True)
@@ -102,6 +109,22 @@ class User(Base):
     food_listings = relationship("FoodListing", back_populates="donor", foreign_keys="FoodListing.donor_id")
     volunteer_deliveries = relationship("Delivery", back_populates="volunteer", foreign_keys="Delivery.volunteer_id")
     charity_deliveries = relationship("Delivery", back_populates="charity", foreign_keys="Delivery.charity_id")
+
+
+class DeliveryProof(Base):
+    __tablename__ = "delivery_proofs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    delivery_id = Column(UUID(as_uuid=True), ForeignKey("deliveries.id"), nullable=False, unique=True)
+    
+    photo_url = Column(String, nullable=False)
+    signature_img_url = Column(String, nullable=True)
+    recipient_name = Column(String, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    delivery = relationship("Delivery", back_populates="proof")
 
 
 class FoodListing(Base):
@@ -192,6 +215,7 @@ class Delivery(Base):
     route_assignment = relationship("RouteAssignment", back_populates="delivery", uselist=False)
     feedback = relationship("Feedback", back_populates="delivery")
     impact_log = relationship("ImpactLog", back_populates="delivery", uselist=False)
+    proof = relationship("DeliveryProof", back_populates="delivery", uselist=False)
 
 
 class RouteAssignment(Base):
