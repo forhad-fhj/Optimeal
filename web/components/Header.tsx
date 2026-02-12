@@ -32,11 +32,17 @@ export default function Header() {
                         <span className="text-xl font-bold text-slate-900 tracking-tight">OptiMeal</span>
                     </Link>
 
-                    {/* Desktop Navigation */}
+                    {/* Desktop Navigation — role-based */}
                     <nav className="hidden md:flex gap-2">
-                        <Link href="/donor" className={isActive('/donor')}>Donor</Link>
-                        <Link href="/volunteer" className={isActive('/volunteer')}>Volunteer</Link>
-                        <Link href="/charity" className={isActive('/charity')}>Charity</Link>
+                        {(!session?.user?.role || session.user.role === 'donor' || session.user.role === 'admin') && (
+                            <Link href="/donor" className={isActive('/donor')}>Donor</Link>
+                        )}
+                        {(!session?.user?.role || session.user.role === 'volunteer' || session.user.role === 'admin') && (
+                            <Link href="/volunteer" className={isActive('/volunteer')}>Volunteer</Link>
+                        )}
+                        {(!session?.user?.role || session.user.role === 'charity' || session.user.role === 'admin') && (
+                            <Link href="/charity" className={isActive('/charity')}>Charity</Link>
+                        )}
                         {session?.user?.role === 'admin' && (
                             <Link href="/admin" className={isActive('/admin')}>Admin</Link>
                         )}
@@ -94,9 +100,15 @@ export default function Header() {
             {/* Mobile Menu */}
             {isMenuOpen && (
                 <div className="md:hidden border-t border-slate-100 bg-white p-4 space-y-2 absolute w-full shadow-lg">
-                    <Link href="/donor" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Donor Dashboard</Link>
-                    <Link href="/volunteer" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Volunteer Map</Link>
-                    <Link href="/charity" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Charity Hub</Link>
+                    {(!session?.user?.role || session.user.role === 'donor' || session.user.role === 'admin') && (
+                        <Link href="/donor" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Donor Dashboard</Link>
+                    )}
+                    {(!session?.user?.role || session.user.role === 'volunteer' || session.user.role === 'admin') && (
+                        <Link href="/volunteer" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Volunteer Map</Link>
+                    )}
+                    {(!session?.user?.role || session.user.role === 'charity' || session.user.role === 'admin') && (
+                        <Link href="/charity" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Charity Hub</Link>
+                    )}
                     {session?.user?.role === 'admin' && (
                         <Link href="/admin" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Admin Dashboard</Link>
                     )}

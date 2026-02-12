@@ -6,8 +6,8 @@ import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { listingsApi, routesApi, deliveriesApi, usersApi } from '@/lib/api';
-import { FoodListing, RoutePoint, RouteResponse, UserBrief, DeliveryStats, FoodCategory } from '@/types';
-import { MapPin, Navigation, Clock, CheckCircle2, Truck, ChevronLeft, ChevronRight, Menu, Search, Crosshair } from 'lucide-react';
+import { FoodListing, RoutePoint, RouteResponse, UserBrief, DeliveryStats, FoodCategory, Delivery } from '@/types';
+import { MapPin, Navigation, Clock, CheckCircle2, Truck, ChevronLeft, ChevronRight, Menu, Search, Crosshair, Package } from 'lucide-react';
 
 // Dynamic import for Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), { ssr: false });
@@ -34,6 +34,8 @@ export default function VolunteerPage() {
     const [route, setRoute] = useState<RoutePoint[]>([]);
     const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
     const [stats, setStats] = useState<DeliveryStats | null>(null);
+    const [activeDeliveries, setActiveDeliveries] = useState<Delivery[]>([]);
+    const [sidebarTab, setSidebarTab] = useState<'pickups' | 'deliveries'>('pickups');
     const [isAvailable, setIsAvailable] = useState(false);
     const [loading, setLoading] = useState(true);
     const [calculating, setCalculating] = useState(false);
@@ -103,8 +105,12 @@ export default function VolunteerPage() {
             setCharities(charitiesData);
 
             if (userId) {
-                const statsData = await deliveriesApi.getStats(userId, 'volunteer') as DeliveryStats;
+                const [statsData, myDeliveries] = await Promise.all([
+                    deliveriesApi.getStats(userId, 'volunteer') as Promise<DeliveryStats>,
+                    deliveriesApi.getByVolunteer(userId, true) as Promise<Delivery[]>,
+                ]);
                 setStats(statsData);
+                setActiveDeliveries(myDeliveries);
             }
         } catch (err) {
             console.error('Failed to fetch data:', err);
@@ -283,179 +289,275 @@ export default function VolunteerPage() {
                     </button>
                 </div>
 
+                {/* Sidebar Tab Switcher */}
+                <div className="flex border-b border-slate-200">
+                    <button
+                        onClick={() => setSidebarTab('pickups')}
+                        className={`flex-1 py-2.5 text-xs font-semibold uppercase tracking-wider text-center transition-colors ${sidebarTab === 'pickups'
+                            ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                    >
+                        Nearby Pickups
+                    </button>
+                    <button
+                        onClick={() => setSidebarTab('deliveries')}
+                        className={`flex-1 py-2.5 text-xs font-semibold uppercase tracking-wider text-center transition-colors relative ${sidebarTab === 'deliveries'
+                            ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50/50'
+                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                    >
+                        My Deliveries
+                        {activeDeliveries.length > 0 && (
+                            <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold bg-emerald-500 text-white rounded-full">
+                                {activeDeliveries.length}
+                            </span>
+                        )}
+                    </button>
+                </div>
+
                 {/* Main Content Areas */}
                 <div className="flex-grow overflow-y-auto">
-                    {/* Location Search — shown when geolocation is denied */}
-                    {locationDenied && (
-                        <div className="p-4 bg-amber-50 border-b border-amber-100">
-                            <div className="flex items-center gap-2 mb-2">
-                                <MapPin size={16} className="text-amber-600" />
-                                <p className="text-sm font-medium text-amber-800">Location access denied</p>
-                            </div>
-                            <p className="text-xs text-amber-600 mb-3">Enter your city or address to find nearby food.</p>
-                            <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    searchLocation(locationSearch);
-                                }}
-                                className="flex gap-2"
-                            >
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-2.5 top-2 text-amber-400" size={14} />
-                                    <input
-                                        type="text"
-                                        value={locationSearch}
-                                        onChange={(e) => setLocationSearch(e.target.value)}
-                                        placeholder="e.g. Sylhet, Bangladesh"
-                                        className="w-full pl-8 pr-3 py-1.5 border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-400 bg-white transition-all"
-                                    />
+                    {/* ===== MY DELIVERIES TAB ===== */}
+                    {sidebarTab === 'deliveries' && (
+                        <div className="p-4">
+                            {activeDeliveries.length === 0 ? (
+                                <div className="text-center py-10 px-4">
+                                    <Package size={40} className="mx-auto text-slate-300 mb-3" />
+                                    <p className="text-slate-500 text-sm font-medium">No active deliveries</p>
+                                    <p className="text-slate-400 text-xs mt-1">Claim a pickup to start delivering!</p>
                                 </div>
-                                <button
-                                    type="submit"
-                                    disabled={searchingLocation}
-                                    className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700 transition-colors disabled:opacity-50"
-                                >
-                                    {searchingLocation ? '...' : 'Search'}
-                                </button>
-                            </form>
+                            ) : (
+                                <div className="space-y-3">
+                                    {activeDeliveries.map(delivery => {
+                                        const statusColors: Record<string, string> = {
+                                            assigned: 'bg-blue-100 text-blue-700',
+                                            en_route_pickup: 'bg-amber-100 text-amber-700',
+                                            picked_up: 'bg-purple-100 text-purple-700',
+                                            en_route_delivery: 'bg-indigo-100 text-indigo-700',
+                                            delivered: 'bg-emerald-100 text-emerald-700',
+                                            confirmed: 'bg-green-100 text-green-800',
+                                        };
+                                        const statusLabels: Record<string, string> = {
+                                            assigned: 'Assigned',
+                                            en_route_pickup: 'En Route to Pickup',
+                                            picked_up: 'Picked Up',
+                                            en_route_delivery: 'En Route to Charity',
+                                            delivered: 'Delivered',
+                                            confirmed: 'Confirmed',
+                                        };
+                                        return (
+                                            <div key={delivery.id} className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${statusColors[delivery.status] || 'bg-slate-100 text-slate-600'}`}>
+                                                        {statusLabels[delivery.status] || delivery.status}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400">
+                                                        {new Date(delivery.created_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <MapPin size={14} className="text-emerald-500 flex-shrink-0" />
+                                                        <span className="text-sm font-medium text-slate-800">
+                                                            {delivery.charity?.name || 'Charity'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Package size={14} className="text-blue-500 flex-shrink-0" />
+                                                        <span className="text-xs text-slate-500">
+                                                            {delivery.listing_ids.length} item{delivery.listing_ids.length !== 1 ? 's' : ''}
+                                                        </span>
+                                                    </div>
+                                                    {delivery.delivery_eta && (
+                                                        <div className="flex items-center gap-2">
+                                                            <Clock size={14} className="text-amber-500 flex-shrink-0" />
+                                                            <span className="text-xs text-slate-500">
+                                                                ETA: {new Date(delivery.delivery_eta).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Action Panel */}
-                    <div className="p-5 space-y-4 bg-slate-50/50 border-b border-slate-100">
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                                    Delivery Destination
-                                </label>
-                                <button
-                                    onClick={fetchData}
-                                    className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-                                    disabled={loading}
+                    {/* ===== PICKUPS TAB ===== */}
+                    {sidebarTab === 'pickups' && <>
+                        {/* Location Search — shown when geolocation is denied */}
+                        {locationDenied && (
+                            <div className="p-4 bg-amber-50 border-b border-amber-100">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <MapPin size={16} className="text-amber-600" />
+                                    <p className="text-sm font-medium text-amber-800">Location access denied</p>
+                                </div>
+                                <p className="text-xs text-amber-600 mb-3">Enter your city or address to find nearby food.</p>
+                                <form
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        searchLocation(locationSearch);
+                                    }}
+                                    className="flex gap-2"
                                 >
-                                    {loading ? 'Refreshing...' : 'Refresh Data'}
-                                </button>
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-2.5 top-2 text-amber-400" size={14} />
+                                        <input
+                                            type="text"
+                                            value={locationSearch}
+                                            onChange={(e) => setLocationSearch(e.target.value)}
+                                            placeholder="e.g. Sylhet, Bangladesh"
+                                            className="w-full pl-8 pr-3 py-1.5 border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-400 bg-white transition-all"
+                                        />
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={searchingLocation}
+                                        className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700 transition-colors disabled:opacity-50"
+                                    >
+                                        {searchingLocation ? '...' : 'Search'}
+                                    </button>
+                                </form>
                             </div>
-                            <select
-                                value={selectedCharity}
-                                onChange={e => setSelectedCharity(e.target.value)}
-                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                disabled={charities.length === 0}
-                            >
-                                <option value="">{charities.length === 0 ? 'No charities available' : 'Select Charity...'}</option>
-                                {charities.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
-                            {charities.length === 0 && !loading && (
-                                <p className="text-xs text-amber-600 mt-1">
-                                    No registered charities found.
-                                </p>
+                        )}
+
+                        {/* Action Panel */}
+                        <div className="p-5 space-y-4 bg-slate-50/50 border-b border-slate-100">
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+                                        Delivery Destination
+                                    </label>
+                                    <button
+                                        onClick={fetchData}
+                                        className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                                        disabled={loading}
+                                    >
+                                        {loading ? 'Refreshing...' : 'Refresh Data'}
+                                    </button>
+                                </div>
+                                <select
+                                    value={selectedCharity}
+                                    onChange={e => setSelectedCharity(e.target.value)}
+                                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    disabled={charities.length === 0}
+                                >
+                                    <option value="">{charities.length === 0 ? 'No charities available' : 'Select Charity...'}</option>
+                                    {charities.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                                {charities.length === 0 && !loading && (
+                                    <p className="text-xs text-amber-600 mt-1">
+                                        No registered charities found.
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <Button
+                                    onClick={calculateRoute}
+                                    disabled={selectedListings.length === 0 || !selectedCharity || calculating}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+                                    size="sm"
+                                >
+                                    {calculating ? 'Working...' : 'Optimize Route'}
+                                </Button>
+                                <Button
+                                    onClick={claimDelivery}
+                                    disabled={route.length === 0 || claiming}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white w-full"
+                                    size="sm"
+                                >
+                                    {claiming ? 'Claiming...' : 'Start Delivery'}
+                                </Button>
+                            </div>
+
+                            {routeInfo && (
+                                <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center text-sm">
+                                    <div className="text-blue-900">
+                                        <span className="font-semibold">{routeInfo.distance.toFixed(1)} km</span>
+                                        <span className="mx-1">•</span>
+                                        <span>~{routeInfo.duration} mins</span>
+                                    </div>
+                                    <span className="text-blue-600 font-medium">{route.length} stops</span>
+                                </div>
                             )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <Button
-                                onClick={calculateRoute}
-                                disabled={selectedListings.length === 0 || !selectedCharity || calculating}
-                                className="bg-blue-600 hover:bg-blue-700 text-white w-full"
-                                size="sm"
-                            >
-                                {calculating ? 'Working...' : 'Optimize Route'}
-                            </Button>
-                            <Button
-                                onClick={claimDelivery}
-                                disabled={route.length === 0 || claiming}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white w-full"
-                                size="sm"
-                            >
-                                {claiming ? 'Claiming...' : 'Start Delivery'}
-                            </Button>
-                        </div>
-
-                        {routeInfo && (
-                            <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center text-sm">
-                                <div className="text-blue-900">
-                                    <span className="font-semibold">{routeInfo.distance.toFixed(1)} km</span>
-                                    <span className="mx-1">•</span>
-                                    <span>~{routeInfo.duration} mins</span>
+                        {/* Listings Feed */}
+                        <div className="p-2">
+                            <h3 className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 bg-white/95 backdrop-blur z-10 flex justify-between items-center">
+                                <span>Nearby Pickups</span>
+                                <span className="text-xs normal-case font-normal text-slate-400">
+                                    {listings.length} found
+                                </span>
+                            </h3>
+                            {loading ? (
+                                <div className="py-10 text-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto opacity-50"></div>
                                 </div>
-                                <span className="text-blue-600 font-medium">{route.length} stops</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Listings Feed */}
-                    <div className="p-2">
-                        <h3 className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 bg-white/95 backdrop-blur z-10 flex justify-between items-center">
-                            <span>Nearby Pickups</span>
-                            <span className="text-xs normal-case font-normal text-slate-400">
-                                {listings.length} found
-                            </span>
-                        </h3>
-                        {loading ? (
-                            <div className="py-10 text-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto opacity-50"></div>
-                            </div>
-                        ) : listings.length === 0 ? (
-                            <div className="text-center py-10 px-4">
-                                <span className="text-4xl block mb-2">🌿</span>
-                                <p className="text-slate-500 text-sm font-medium">No food to rescue nearby.</p>
-                                <p className="text-slate-400 text-xs mt-1">Try refreshing or checking back later.</p>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="mt-4"
-                                    onClick={fetchData}
-                                >
-                                    Refresh Listings
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {listings.map(listing => {
-                                    const isSelected = selectedListings.includes(listing.id);
-                                    return (
-                                        <div
-                                            key={listing.id}
-                                            onClick={() => toggleListing(listing.id)}
-                                            className={`p-3 rounded-xl border transition-all cursor-pointer hover:shadow-md ${isSelected
-                                                ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100'
-                                                : 'bg-white border-slate-100 hover:border-blue-200'
-                                                }`}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <span className="text-2xl bg-slate-50 p-2 rounded-lg">
-                                                    {CATEGORY_ICONS[listing.food_category] || '📦'}
-                                                </span>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex justify-between items-start">
-                                                        <h4 className={`font-semibold text-sm truncate ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
-                                                            {listing.title}
-                                                        </h4>
-                                                        {isSelected && <CheckCircle2 size={16} className="text-blue-600 flex-shrink-0" />}
-                                                    </div>
-                                                    <p className="text-xs text-slate-500 mt-0.5">{listing.quantity_kg} kg • {listing.address?.split(',')[0]}</p>
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded ${new Date(listing.expires_at).getTime() - Date.now() < 3600000
-                                                            ? 'bg-rose-50 text-rose-600'
-                                                            : 'bg-slate-100 text-slate-600'
-                                                            }`}>
-                                                            <Clock size={10} />
-                                                            {getTimeRemaining(listing.expires_at)}
-                                                        </span>
-                                                        {listing.requires_refrigeration && (
-                                                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">❄️ Cold</span>
-                                                        )}
+                            ) : listings.length === 0 ? (
+                                <div className="text-center py-10 px-4">
+                                    <span className="text-4xl block mb-2">🌿</span>
+                                    <p className="text-slate-500 text-sm font-medium">No food to rescue nearby.</p>
+                                    <p className="text-slate-400 text-xs mt-1">Try refreshing or checking back later.</p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-4"
+                                        onClick={fetchData}
+                                    >
+                                        Refresh Listings
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {listings.map(listing => {
+                                        const isSelected = selectedListings.includes(listing.id);
+                                        return (
+                                            <div
+                                                key={listing.id}
+                                                onClick={() => toggleListing(listing.id)}
+                                                className={`p-3 rounded-xl border transition-all cursor-pointer hover:shadow-md ${isSelected
+                                                    ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100'
+                                                    : 'bg-white border-slate-100 hover:border-blue-200'
+                                                    }`}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <span className="text-2xl bg-slate-50 p-2 rounded-lg">
+                                                        {CATEGORY_ICONS[listing.food_category] || '📦'}
+                                                    </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex justify-between items-start">
+                                                            <h4 className={`font-semibold text-sm truncate ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
+                                                                {listing.title}
+                                                            </h4>
+                                                            {isSelected && <CheckCircle2 size={16} className="text-blue-600 flex-shrink-0" />}
+                                                        </div>
+                                                        <p className="text-xs text-slate-500 mt-0.5">{listing.quantity_kg} kg • {listing.address?.split(',')[0]}</p>
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded ${new Date(listing.expires_at).getTime() - Date.now() < 3600000
+                                                                ? 'bg-rose-50 text-rose-600'
+                                                                : 'bg-slate-100 text-slate-600'
+                                                                }`}>
+                                                                <Clock size={10} />
+                                                                {getTimeRemaining(listing.expires_at)}
+                                                            </span>
+                                                            {listing.requires_refrigeration && (
+                                                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">❄️ Cold</span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </>}
                 </div>
 
                 {/* Sidebar Footer */}
