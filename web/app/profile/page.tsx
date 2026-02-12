@@ -7,12 +7,15 @@ import { Input } from '@/components/ui/input';
 import { fetcher, putData, postData } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 import { User, Settings, Activity, LogOut, Award, MapPin, Phone as PhoneIcon, Mail } from 'lucide-react';
+import GamificationBadges from '@/components/profile/GamificationBadges';
+import ActivityTimeline from '@/components/profile/ActivityTimeline';
 
 export default function ProfilePage() {
     const { data: session } = useSession();
     const { success, error } = useToast();
     const [activeTab, setActiveTab] = useState('overview');
     const [profile, setProfile] = useState({
+        id: '',
         name: '',
         role: 'volunteer',
         phone: '',
@@ -49,6 +52,7 @@ export default function ProfilePage() {
                 try {
                     const data = await fetcher<any>(`/api/users/${userId}`);
                     setProfile({
+                        id: userId,
                         name: data.name || '',
                         role: data.role || 'volunteer',
                         phone: data.phone || '',
@@ -114,20 +118,38 @@ export default function ProfilePage() {
                             </div>
                         </div>
 
-                        {/* Recent Activity Placeholder */}
-                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-                            <h3 className="text-lg font-semibold text-slate-800 mb-4">Recent Activity</h3>
-                            <div className="space-y-4">
-                                <div className="flex items-center p-3 bg-slate-50 rounded-lg">
-                                    <div className="w-2 h-2 bg-emerald-500 rounded-full mr-3"></div>
-                                    <p className="text-sm text-slate-600">You logged in successfully.</p>
-                                    <span className="ml-auto text-xs text-slate-400">Just now</span>
+                        {/* Badges & Gamification */}
+                        <GamificationBadges
+                            user={{
+                                id: profile.id,
+                                name: profile.name,
+                                role: profile.role as any,
+                                created_at: '', // Not needed for badges currently
+                                total_donations: stats.donations,
+                                total_deliveries: stats.deliveries,
+                                reliability_score: stats.reliability
+                            }}
+                        />
+
+                        {/* Recent Activity */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-2">
+                                <ActivityTimeline userId={profile.id} role={profile.role} />
+                            </div>
+                            <div className="bg-emerald-50 rounded-xl p-6 border border-emerald-100">
+                                <h3 className="text-lg font-bold text-emerald-800 mb-2">Impact Summary</h3>
+                                <p className="text-sm text-emerald-700 mb-4">
+                                    You have helped save <strong>{stats.donations * 5 + stats.deliveries * 2} kg</strong> of food from going to waste!
+                                </p>
+                                <div className="h-2 bg-emerald-200 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-emerald-500 rounded-full"
+                                        style={{ width: `${Math.min(((stats.donations + stats.deliveries) / 50) * 100, 100)}%` }}
+                                    />
                                 </div>
-                                <div className="flex items-center p-3 bg-slate-50 rounded-lg">
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                                    <p className="text-sm text-slate-600">Profile page viewed.</p>
-                                    <span className="ml-auto text-xs text-slate-400">2 mins ago</span>
-                                </div>
+                                <p className="text-xs text-emerald-600 mt-2 text-right">
+                                    {Math.min(((stats.donations + stats.deliveries) / 50) * 100, 100).toFixed(0)}% to Optimeal Master
+                                </p>
                             </div>
                         </div>
                     </div>
