@@ -474,6 +474,7 @@ export default function VolunteerPage() {
                     route={route}
                     onSelectListing={toggleListing}
                     selectedListings={selectedListings}
+                    routeInfo={routeInfo}
                 />
 
                 {/* Floating Map Controls */}
