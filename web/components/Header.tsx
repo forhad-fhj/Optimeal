@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useAuthSync } from '../lib/hooks/useAuthSync';
 import { Menu, X, LogOut, Settings, User } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Header() {
     const pathname = usePathname();
@@ -15,6 +15,11 @@ export default function Header() {
 
     // Activate sync
     useAuthSync();
+
+    // Warm up API on mount (prevents Render cold start delay)
+    useEffect(() => {
+        fetch('/api/v1/listings?page=1&page_size=1').catch(() => { });
+    }, []);
 
     const isActive = (path: string) => pathname === path
         ? 'text-emerald-600 font-semibold bg-emerald-50 px-3 py-1 rounded-full'

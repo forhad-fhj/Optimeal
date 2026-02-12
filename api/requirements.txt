@@ -12,3 +12,4 @@ geoalchemy2
 networkx
 greenlet
 python-multipart
+httpx

@@ -4,8 +4,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import users, auth, listings, routes, deliveries, matching, feedback, analytics
 from db import engine, Base
 import os
+import asyncio
+import httpx
 
 from sqlalchemy import text
+
+
+async def keep_alive():
+    """Self-ping every 10 minutes to prevent Render free tier cold starts."""
+    render_url = os.getenv("RENDER_EXTERNAL_URL", "")
+    if not render_url:
+        print("⚠️ RENDER_EXTERNAL_URL not set, keep-alive disabled")
+        return
+    health_url = f"{render_url}/health"
+    print(f"🏓 Keep-alive started, pinging {health_url} every 10 min")
+    while True:
+        await asyncio.sleep(600)  # 10 minutes
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(health_url, timeout=10)
+                print(f"🏓 Keep-alive ping: {resp.status_code}")
+        except Exception as e:
+            print(f"🏓 Keep-alive ping failed: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,7 +78,13 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"⚠️ Schema migration warning (tables may not exist yet): {e}")
     
+    # Start keep-alive background task
+    keep_alive_task = asyncio.create_task(keep_alive())
+    
     yield
+    
+    # Cancel keep-alive on shutdown
+    keep_alive_task.cancel()
 
 app = FastAPI(
     title="OptiMeal API",
