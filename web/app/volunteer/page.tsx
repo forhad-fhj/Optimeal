@@ -463,6 +463,41 @@ export default function VolunteerPage() {
                             </div>
                         </div>
                     )}
+
+                    {/* COMPLETED TASKS */}
+                    {activeTab === 'completed' && (
+                        completedDeliveries.length === 0 ? (
+                            <div className="text-center py-12 px-4 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50">
+                                <CheckCircle2 size={40} className="mx-auto text-slate-300 mb-3" />
+                                <p className="text-slate-500 text-sm font-medium">No completed tasks yet.</p>
+                                <p className="text-slate-400 text-xs mt-1">Your verified deliveries will appear here.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {completedDeliveries.map(d => (
+                                    <div key={d.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm opacity-75 hover:opacity-100 transition-opacity">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-600">
+                                                    {d.status.replace('_', ' ')}
+                                                </span>
+                                                <p className="font-bold text-slate-800 text-sm mt-1">
+                                                    To: {d.charity?.name || 'Charity'}
+                                                </p>
+                                            </div>
+                                            <span className="text-xs text-slate-400">
+                                                {d.completed_at ? new Date(d.completed_at).toLocaleDateString() : 'Unknown Date'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                                            <CheckCircle2 size={14} className="text-emerald-500" />
+                                            <span>Delivery Verified</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    )}
                 </div>
             </div>
 
