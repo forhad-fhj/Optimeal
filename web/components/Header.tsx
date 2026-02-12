@@ -39,13 +39,13 @@ export default function Header() {
 
                     {/* Desktop Navigation — role-based */}
                     <nav className="hidden md:flex gap-2">
-                        {(!session?.user?.role || session.user.role === 'donor' || session.user.role === 'admin') && (
+                        {(!session?.user?.role || session.user.role === 'donor') && (
                             <Link href="/donor" className={isActive('/donor')}>Donor</Link>
                         )}
-                        {(!session?.user?.role || session.user.role === 'volunteer' || session.user.role === 'admin') && (
+                        {(!session?.user?.role || session.user.role === 'volunteer') && (
                             <Link href="/volunteer" className={isActive('/volunteer')}>Volunteer</Link>
                         )}
-                        {(!session?.user?.role || session.user.role === 'charity' || session.user.role === 'admin') && (
+                        {(!session?.user?.role || session.user.role === 'charity') && (
                             <Link href="/charity" className={isActive('/charity')}>Charity</Link>
                         )}
                         {session?.user?.role === 'admin' && (
@@ -105,13 +105,13 @@ export default function Header() {
             {/* Mobile Menu */}
             {isMenuOpen && (
                 <div className="md:hidden border-t border-slate-100 bg-white p-4 space-y-2 absolute w-full shadow-lg">
-                    {(!session?.user?.role || session.user.role === 'donor' || session.user.role === 'admin') && (
+                    {(!session?.user?.role || session.user.role === 'donor') && (
                         <Link href="/donor" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Donor Dashboard</Link>
                     )}
-                    {(!session?.user?.role || session.user.role === 'volunteer' || session.user.role === 'admin') && (
+                    {(!session?.user?.role || session.user.role === 'volunteer') && (
                         <Link href="/volunteer" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Volunteer Map</Link>
                     )}
-                    {(!session?.user?.role || session.user.role === 'charity' || session.user.role === 'admin') && (
+                    {(!session?.user?.role || session.user.role === 'charity') && (
                         <Link href="/charity" className="block p-3 rounded-lg hover:bg-slate-50 text-slate-600 font-medium" onClick={() => setIsMenuOpen(false)}>Charity Hub</Link>
                     )}
                     {session?.user?.role === 'admin' && (
