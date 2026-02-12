@@ -39,6 +39,15 @@ const foodIcon = L.icon({
   shadowSize: [41, 41]
 });
 
+const dropoffIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/markers-default/red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
 const selectedFoodIcon = L.icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/markers-default/orange.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -81,6 +90,29 @@ export default function Map({ volunteerLocation, listings = [], route = [], onSe
         </>
       )}
 
+      {/* Render Route Markers */}
+      {route.map((point, index) => {
+        if (!point.lat || !point.lng) return null;
+        let icon = defaultIcon;
+        let title = 'Waypoint';
+
+        if (point.type === 'pickup') {
+          icon = foodIcon;
+          title = 'Pickup: ' + (point.name || 'Location');
+        } else if (point.type === 'dropoff') {
+          icon = dropoffIcon;
+          title = 'Dropoff: ' + (point.name || 'Charity');
+        } else if (point.type === 'start') {
+          return null; // Already rendered volunteer location
+        }
+
+        return (
+          <Marker key={`route-${index}`} position={[point.lat, point.lng]} icon={icon}>
+            <Popup>{title}</Popup>
+          </Marker>
+        );
+      })}
+
       {listings.filter(l => l.location_lat && l.location_lng).map((listing) => (
         <Marker
           key={listing.id}
@@ -101,10 +133,11 @@ export default function Map({ volunteerLocation, listings = [], route = [], onSe
 
       {route.length > 0 && (
         <Polyline
-          positions={route.map(p => [p.lat, p.lng])}
-          color="blue"
+          positions={route.map((p: any) => [p.lat, p.lng])}
+          color="#10b981"
           weight={4}
-          opacity={0.7}
+          opacity={0.8}
+          dashArray="10, 10"
         />
       )}
     </MapContainer>

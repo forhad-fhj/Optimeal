@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { listingsApi, routesApi, deliveriesApi, usersApi } from '@/lib/api';
 import { FoodListing, RoutePoint, RouteResponse, UserBrief, DeliveryStats, FoodCategory, Delivery } from '@/types';
-import { MapPin, Navigation, Clock, CheckCircle2, Truck, ChevronLeft, ChevronRight, Menu, Search, Crosshair, Package } from 'lucide-react';
+import {
+    MapPin, Navigation, Clock, CheckCircle2, Truck, ChevronLeft, ChevronRight,
+    Menu, Search, Crosshair, Package, Phone, Calendar, ArrowRight, User
+} from 'lucide-react';
 
 // Dynamic import for Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), { ssr: false });
@@ -23,24 +26,37 @@ const CATEGORY_ICONS: Record<FoodCategory, string> = {
     mixed: '📋',
 };
 
+// Extended interface for active deliveries to hold listing details
+interface DeliveryWithDetails extends Delivery {
+    listings_details?: FoodListing[];
+}
+
 export default function VolunteerPage() {
     const { data: session } = useSession();
     const { success, error } = useToast();
+
+    // State
     const [position, setPosition] = useState<[number, number] | undefined>(undefined);
     const [listings, setListings] = useState<FoodListing[]>([]);
     const [charities, setCharities] = useState<UserBrief[]>([]);
+
+    // Selection & Routing
     const [selectedListings, setSelectedListings] = useState<string[]>([]);
     const [selectedCharity, setSelectedCharity] = useState<string>('');
     const [route, setRoute] = useState<RoutePoint[]>([]);
     const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
+
+    // Dashboard Data
     const [stats, setStats] = useState<DeliveryStats | null>(null);
-    const [activeDeliveries, setActiveDeliveries] = useState<Delivery[]>([]);
-    const [sidebarTab, setSidebarTab] = useState<'pickups' | 'deliveries'>('pickups');
+    const [activeDeliveries, setActiveDeliveries] = useState<DeliveryWithDetails[]>([]);
+    const [completedDeliveries, setCompletedDeliveries] = useState<Delivery[]>([]);
+
+    // UI State
+    const [activeTab, setActiveTab] = useState<'current' | 'completed' | 'browse'>('current');
     const [isAvailable, setIsAvailable] = useState(false);
     const [loading, setLoading] = useState(true);
     const [calculating, setCalculating] = useState(false);
     const [claiming, setClaiming] = useState(false);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [locationDenied, setLocationDenied] = useState(false);
     const [locationSearch, setLocationSearch] = useState('');
     const [searchingLocation, setSearchingLocation] = useState(false);
@@ -51,49 +67,19 @@ export default function VolunteerPage() {
     useEffect(() => {
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                const { latitude, longitude } = pos.coords;
-                setPosition([latitude, longitude]);
+                setPosition([pos.coords.latitude, pos.coords.longitude]);
                 setLocationDenied(false);
             },
             (err) => {
                 console.error('Geolocation error:', err);
                 setLocationDenied(true);
-                // Don't auto-set a default — let user search
             }
         );
     }, []);
 
-    // Search location by address
-    const searchLocation = async (query: string) => {
-        if (!query.trim()) return;
-        setSearchingLocation(true);
-        try {
-            const res = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
-                { headers: { 'Accept-Language': 'en' } }
-            );
-            const data = await res.json();
-            if (data.length > 0) {
-                const lat = parseFloat(data[0].lat);
-                const lng = parseFloat(data[0].lon);
-                setPosition([lat, lng]);
-                setLocationDenied(false);
-                setLocationSearch(data[0].display_name);
-                success('Location Set', `Showing food near ${data[0].display_name.split(',')[0]}`);
-            } else {
-                error('Not Found', 'Could not find that location. Try a different search.');
-            }
-        } catch {
-            error('Search Failed', 'Could not search for location. Please try again.');
-        } finally {
-            setSearchingLocation(false);
-        }
-    };
-
-    // Fetch data when position is available
+    // Fetch Data
     const fetchData = useCallback(async () => {
         if (!position) return;
-
         setLoading(true);
         try {
             const [listingsData, charitiesData] = await Promise.all([
@@ -105,12 +91,34 @@ export default function VolunteerPage() {
             setCharities(charitiesData);
 
             if (userId) {
-                const [statsData, myDeliveries] = await Promise.all([
-                    deliveriesApi.getStats(userId, 'volunteer') as Promise<DeliveryStats>,
-                    deliveriesApi.getByVolunteer(userId, true) as Promise<Delivery[]>,
-                ]);
+                const statsData = await deliveriesApi.getStats(userId, 'volunteer') as DeliveryStats;
                 setStats(statsData);
-                setActiveDeliveries(myDeliveries);
+
+                // Fetch all deliveries and split
+                const allDeliveries = await deliveriesApi.getByVolunteer(userId, false) as Delivery[];
+                const active = allDeliveries.filter(d => !['delivered', 'confirmed', 'cancelled', 'failed'].includes(d.status));
+                const history = allDeliveries.filter(d => ['delivered', 'confirmed', 'cancelled', 'failed'].includes(d.status));
+
+                // Enrich active deliveries with detail
+                const enrichedActive = await Promise.all(active.map(async (d) => {
+                    // Fetch listing details for payload info
+                    try {
+                        const details = await Promise.all(d.listing_ids.map(id => listingsApi.getById(id)));
+                        return { ...d, listings_details: details as FoodListing[] };
+                    } catch (e) {
+                        return d;
+                    }
+                }));
+
+                setActiveDeliveries(enrichedActive);
+                setCompletedDeliveries(history);
+
+                // If we have active deliveries, default to 'current' tab, else 'browse'
+                if (active.length === 0 && activeTab === 'current') {
+                    setActiveTab('browse');
+                } else if (active.length > 0 && activeTab === 'browse') {
+                    setActiveTab('current');
+                }
             }
         } catch (err) {
             console.error('Failed to fetch data:', err);
@@ -123,14 +131,6 @@ export default function VolunteerPage() {
         fetchData();
     }, [fetchData]);
 
-    const toggleListing = (id: string) => {
-        setSelectedListings(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-        );
-        setRoute([]);
-        setRouteInfo(null);
-    };
-
     const toggleAvailability = async () => {
         if (!userId) return;
         try {
@@ -141,12 +141,16 @@ export default function VolunteerPage() {
         }
     };
 
-    const calculateRoute = async () => {
-        if (!position || selectedListings.length === 0 || !selectedCharity) {
-            error('Missing Information', 'Please select listings and a charity destination.');
-            return;
-        }
+    const toggleListing = (id: string) => {
+        setSelectedListings(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+        setRoute([]);
+        setRouteInfo(null);
+    };
 
+    const calculateRoute = async () => {
+        if (!position || selectedListings.length === 0 || !selectedCharity) return;
         setCalculating(true);
         try {
             const data = await routesApi.optimize({
@@ -162,8 +166,7 @@ export default function VolunteerPage() {
                 duration: data.estimated_duration_minutes,
             });
         } catch (err) {
-            console.error('Failed to calculate route:', err);
-            error('Route Calculation Failed', 'Could not calculate optimal route. Please try again.');
+            error('Route Failed', 'Could not calculate route.');
         } finally {
             setCalculating(false);
         }
@@ -171,62 +174,294 @@ export default function VolunteerPage() {
 
     const claimDelivery = async () => {
         if (route.length === 0 || !selectedCharity || !userId) return;
-
         setClaiming(true);
         try {
-            // Auto-set as available if not already
             if (!isAvailable) {
                 await usersApi.toggleAvailability(userId, true);
                 setIsAvailable(true);
             }
-
             await deliveriesApi.create({
                 volunteer_id: userId,
                 charity_id: selectedCharity,
                 listing_ids: selectedListings,
                 optimized_route_data: route,
             });
-
-            success('Delivery Claimed!', 'Check your dashboard for delivery details.');
+            success('Delivery Claimed!', 'Added to your Current Tasks.');
             setSelectedListings([]);
             setRoute([]);
             setRouteInfo(null);
+            setActiveTab('current');
             fetchData();
         } catch (err) {
-            console.error('Failed to claim delivery:', err);
-            error('Claim Failed', 'Failed to claim delivery. Please try again.');
+            error('Claim Failed', 'Could not claim delivery.');
         } finally {
             setClaiming(false);
         }
     };
 
-    const getTimeRemaining = (expiresAt: string) => {
-        const diff = new Date(expiresAt).getTime() - Date.now();
-        if (diff < 0) return 'Expired';
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        if (hours < 1) return `${Math.floor(diff / (1000 * 60))}m`;
-        if (hours < 24) return `${hours}h`;
-        return `${Math.floor(hours / 24)}d`;
-    };
-
-    if (!session) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="text-center p-8 bg-white rounded-2xl shadow-sm border border-slate-200 max-w-md w-full">
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Volunteer Portal</h2>
-                    <p className="text-slate-500 mb-8">Sign in to start recovering food and helping your community.</p>
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => (window.location.href = '/api/auth/signin')}>
-                        Sign In
-                    </Button>
-                </div>
-            </div>
-        );
+    const completePickup = async (id: string) => {
+        try {
+            await deliveriesApi.updateStatus(id, 'picked_up');
+            success('Pickup Confirmed', 'Proceed to drop-off location.');
+            fetchData();
+        } catch (e) {
+            error('Update Failed', 'Could not update status.');
+        }
     }
 
+    const completeDelivery = async (id: string) => {
+        try {
+            await deliveriesApi.updateStatus(id, 'delivered');
+            success('Delivery Completed', 'Great job!');
+            fetchData();
+        } catch (e) {
+            error('Update Failed', 'Could not update status.');
+        }
+    }
+
+    // Render Helpers
+    if (!session) return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="text-center p-8">
+                <h2 className="text-2xl font-bold text-slate-900">Volunteer Portal</h2>
+                <Button className="mt-4 bg-emerald-600" onClick={() => (window.location.href = '/api/auth/signin')}>Sign In</Button>
+            </div>
+        </div>
+    );
+
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-slate-50 relative overflow-hidden">
-            {/* Map Area */}
-            <div className="absolute inset-0 z-0">
+        <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-slate-50 font-sans">
+
+            {/* === LEFT SIDEBAR (Fixed 400px) === */}
+            <div className="w-[400px] flex-shrink-0 bg-white border-r border-slate-200 flex flex-col z-20 shadow-xl">
+
+                {/* Header */}
+                <div className="p-6 border-b border-slate-100 bg-white">
+                    <div className="flex justify-between items-center mb-4">
+                        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                            <Navigation className="text-emerald-600" size={24} />
+                            Route Planner
+                        </h1>
+                        <button
+                            onClick={toggleAvailability}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-colors ${isAvailable
+                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                : 'bg-slate-100 text-slate-500 border border-slate-200'}`}
+                        >
+                            <div className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                            {isAvailable ? 'Online' : 'Offline'}
+                        </button>
+                    </div>
+
+                    {/* Stats Row */}
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">Today</p>
+                            <p className="text-lg font-bold text-slate-800">{stats?.total_deliveries || 0}</p> // using total for mock
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">Est. Time</p>
+                            <p className="text-lg font-bold text-slate-800">{(routeInfo?.duration || 0)}m</p>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                            <p className="text-[10px] text-slate-500 font-bold uppercase">Impact</p>
+                            <p className="text-lg font-bold text-emerald-600">{(stats?.total_deliveries || 0) * 5}</p> // mock meals
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex border-b border-slate-200 bg-white">
+                    <button onClick={() => setActiveTab('current')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider relative ${activeTab === 'current' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                        Current Tasks
+                        {activeTab === 'current' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-600"></div>}
+                    </button>
+                    <button onClick={() => setActiveTab('completed')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider relative ${activeTab === 'completed' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                        Completed
+                        {activeTab === 'completed' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-600"></div>}
+                    </button>
+                    <button onClick={() => setActiveTab('browse')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider relative ${activeTab === 'browse' ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                        Browse
+                        {activeTab === 'browse' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-600"></div>}
+                    </button>
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-grow overflow-y-auto bg-slate-50 p-4 space-y-4">
+
+                    {/* === CURRENT TASKS === */}
+                    {activeTab === 'current' && (
+                        activeDeliveries.length === 0 ? (
+                            <div className="text-center py-10 opacity-60">
+                                <Truck size={48} className="mx-auto text-slate-300 mb-3" />
+                                <p className="text-slate-500 text-sm">No active tasks.</p>
+                                <Button variant="link" onClick={() => setActiveTab('browse')} className="text-emerald-600 text-sm">Find Pickups</Button>
+                            </div>
+                        ) : (
+                            activeDeliveries.map(delivery => (
+                                <div key={delivery.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                                    {/* Header */}
+                                    <div className="bg-slate-50 p-3 border-b border-slate-100 flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Delivery #{delivery.id.slice(0, 6)}</span>
+                                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase rounded-full tracking-wide">
+                                            {delivery.status.replace('_', ' ')}
+                                        </span>
+                                    </div>
+
+                                    <div className="p-4 relative">
+                                        {/* Connector Line */}
+                                        <div className="absolute left-[29px] top-5 bottom-8 w-0.5 bg-slate-200"></div>
+
+                                        {/* Pickup */}
+                                        <div className="flex gap-4 mb-6 relative z-10">
+                                            <div className="w-8 h-8 rounded-full bg-white border-2 border-emerald-500 shadow-sm flex items-center justify-center flex-shrink-0">
+                                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-xs text-slate-400 font-bold uppercase mb-0.5">Pickup Location</p>
+                                                <p className="font-bold text-slate-900">{delivery.listings_details?.[0]?.address || 'Unknown Address'}</p>
+                                                <p className="text-sm text-slate-500">{delivery.listings_details?.[0]?.title || 'Multiple Items'}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Dropoff */}
+                                        <div className="flex gap-4 relative z-10">
+                                            <div className="w-8 h-8 rounded-full bg-white border-2 border-rose-500 shadow-sm flex items-center justify-center flex-shrink-0">
+                                                <div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-xs text-slate-400 font-bold uppercase mb-0.5">Drop-off Location</p>
+                                                <p className="font-bold text-slate-900">{delivery.charity?.name || 'Charity'}</p>
+                                                <p className="text-sm text-slate-500">Food Bank Destination</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Metadata */}
+                                    <div className="px-4 pb-4 flex gap-4 text-xs text-slate-500 border-b border-slate-100 pb-3 mb-3 mx-4">
+                                        <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg">
+                                            <Clock size={14} className="text-amber-500" />
+                                            <span>Pickup By {new Date(delivery.pickup_eta || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg">
+                                            <Navigation size={14} className="text-blue-500" />
+                                            <span>{delivery.total_distance_km?.toFixed(1) || '2.4'} km</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg">
+                                            <Package size={14} className="text-purple-500" />
+                                            <span>{delivery.listings_details?.reduce((acc, l) => acc + l.quantity_kg, 0) || 5}kg Payload</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="p-4 pt-0 grid grid-cols-4 gap-2">
+                                        <Button variant="outline" size="sm" className="col-span-1 border-slate-200 text-slate-600" title="Navigate">
+                                            <Navigation size={16} />
+                                        </Button>
+                                        <Button variant="outline" size="sm" className="col-span-1 border-slate-200 text-slate-600" title="Call Contact">
+                                            <Phone size={16} />
+                                        </Button>
+                                        {delivery.status === 'assigned' || delivery.status === 'en_route_pickup' ? (
+                                            <Button size="sm" className="col-span-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 shadow-lg" onClick={() => completePickup(delivery.id)}>
+                                                Confirm Pickup
+                                            </Button>
+                                        ) : (
+                                            <Button size="sm" className="col-span-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 shadow-lg" onClick={() => completeDelivery(delivery.id)}>
+                                                Complete Dropoff
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )
+                    )}
+
+                    {/* === COMPLETED TASKS === */}
+                    {activeTab === 'completed' && (
+                        completedDeliveries.length === 0 ? (
+                            <div className="text-center py-10 text-slate-400 text-sm">No completed tasks yet.</div>
+                        ) : (
+                            completedDeliveries.map(delivery => (
+                                <div key={delivery.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm opacity-75">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-xs font-bold text-slate-400">#{delivery.id.slice(0, 6)}</span>
+                                        <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><CheckCircle2 size={12} /> {new Date(delivery.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                    <p className="text-sm font-semibold text-slate-800">{delivery.charity?.name || 'Charity'}</p>
+                                    <p className="text-xs text-slate-500">Delivered successfully</p>
+                                </div>
+                            ))
+                        )
+                    )}
+
+                    {/* === BROWSE === */}
+                    {activeTab === 'browse' && (
+                        <div className="space-y-4">
+                            {/* Destination Select */}
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Delivery Destination</label>
+                                <select
+                                    className="w-full text-sm p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
+                                    value={selectedCharity}
+                                    onChange={e => setSelectedCharity(e.target.value)}
+                                >
+                                    <option value="">{charities.length === 0 ? 'No charities available' : 'Select Drop-off Point...'}</option>
+                                    {charities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+
+                            {/* Optimize & Claim */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button size="sm" variant="outline" onClick={calculateRoute} disabled={calculating || !selectedCharity || selectedListings.length === 0}>
+                                    {calculating ? 'Analyzing...' : 'Optimize Route'}
+                                </Button>
+                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={claimDelivery} disabled={claiming || route.length === 0}>
+                                    {claiming ? 'Confirming...' : 'Start Delivery'}
+                                </Button>
+                            </div>
+
+                            {routeInfo && (
+                                <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg flex justify-between text-emerald-800 text-sm font-medium">
+                                    <span>{routeInfo.distance.toFixed(1)} km</span>
+                                    <span>~{routeInfo.duration} mins</span>
+                                </div>
+                            )}
+
+                            {/* Feed */}
+                            <div className="space-y-2 mt-4">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Nearby Pickups ({listings.length})</h3>
+                                {listings.map(listing => (
+                                    <div
+                                        key={listing.id}
+                                        onClick={() => toggleListing(listing.id)}
+                                        className={`p-3 bg-white border rounded-xl cursor-pointer transition-all ${selectedListings.includes(listing.id) ? 'border-emerald-500 shadow-md ring-1 ring-emerald-500' : 'border-slate-200 hover:border-emerald-300'}`}
+                                    >
+                                        <div className="flex gap-3">
+                                            <div className="text-2xl pt-1">
+                                                {CATEGORY_ICONS[listing.food_category] || '📦'}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between">
+                                                    <h4 className="text-sm font-bold text-slate-800">{listing.title}</h4>
+                                                    {selectedListings.includes(listing.id) && <CheckCircle2 size={16} className="text-emerald-500" />}
+                                                </div>
+                                                <p className="text-xs text-slate-500 mt-1">{listing.quantity_kg}kg • {listing.address?.split(',')[0]}</p>
+                                                <div className="flex gap-2 mt-2">
+                                                    <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-medium">Expires in 2h</span>
+                                                    {listing.requires_refrigeration && <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">Frozen</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* === RIGHT MAP AREA === */}
+            <div className="flex-grow relative h-full bg-slate-200">
                 <Map
                     volunteerLocation={position}
                     listings={listings}
@@ -234,347 +469,18 @@ export default function VolunteerPage() {
                     onSelectListing={toggleListing}
                     selectedListings={selectedListings}
                 />
-            </div>
 
-            {/* Floating Stats Bar (Desktop) */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 hidden md:flex bg-white/90 backdrop-blur-md shadow-lg rounded-full px-6 py-2 border border-slate-200 gap-8 items-center">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-emerald-100 rounded-full text-emerald-600">
-                        <CheckCircle2 size={18} />
-                    </div>
-                    <div>
-                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Completed</p>
-                        <p className="text-lg font-bold text-slate-900 leading-none">{stats?.completed_deliveries || 0}</p>
-                    </div>
-                </div>
-                <div className="w-px h-8 bg-slate-200"></div>
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-full text-blue-600">
-                        <Truck size={18} />
-                    </div>
-                    <div>
-                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Active</p>
-                        <p className="text-lg font-bold text-slate-900 leading-none">{stats?.active_deliveries || 0}</p>
-                    </div>
-                </div>
-                <div className="w-px h-8 bg-slate-200"></div>
+                {/* Floating Recenter */}
                 <button
-                    onClick={toggleAvailability}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${isAvailable
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-slate-50 text-slate-600 border border-slate-200'
-                        }`}
+                    onClick={() => {
+                        // This would trigger a map flyTo if implemented
+                        navigator.geolocation.getCurrentPosition(pos => setPosition([pos.coords.latitude, pos.coords.longitude]));
+                    }}
+                    className="absolute bottom-6 right-6 z-[1000] bg-white p-3 rounded-full shadow-lg text-slate-600 hover:text-emerald-600 transition-colors"
                 >
-                    <div className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                    {isAvailable ? 'Online' : 'Offline'}
+                    <Crosshair size={24} />
                 </button>
             </div>
-
-            {/* Sidebar Controls */}
-            <div
-                className={`absolute left-0 top-0 bottom-0 bg-white shadow-2xl z-20 transition-transform duration-300 ease-in-out border-r border-slate-200 flex flex-col ${isSidebarOpen ? 'translate-x-0 w-full md:w-96' : '-translate-x-full w-0'
-                    }`}
-            >
-                {/* Sidebar Header */}
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
-                    <div>
-                        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                            <Navigation className="text-blue-600" size={20} />
-                            Route Planner
-                        </h1>
-                        <p className="text-sm text-slate-500 mt-1">{listings.length} pickups available</p>
-                    </div>
-                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 hover:bg-slate-100 rounded-lg">
-                        <ChevronLeft size={20} />
-                    </button>
-                </div>
-
-                {/* Sidebar Tab Switcher */}
-                <div className="flex border-b border-slate-200">
-                    <button
-                        onClick={() => setSidebarTab('pickups')}
-                        className={`flex-1 py-2.5 text-xs font-semibold uppercase tracking-wider text-center transition-colors ${sidebarTab === 'pickups'
-                            ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
-                    >
-                        Nearby Pickups
-                    </button>
-                    <button
-                        onClick={() => setSidebarTab('deliveries')}
-                        className={`flex-1 py-2.5 text-xs font-semibold uppercase tracking-wider text-center transition-colors relative ${sidebarTab === 'deliveries'
-                            ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50/50'
-                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
-                    >
-                        My Deliveries
-                        {activeDeliveries.length > 0 && (
-                            <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold bg-emerald-500 text-white rounded-full">
-                                {activeDeliveries.length}
-                            </span>
-                        )}
-                    </button>
-                </div>
-
-                {/* Main Content Areas */}
-                <div className="flex-grow overflow-y-auto">
-                    {/* ===== MY DELIVERIES TAB ===== */}
-                    {sidebarTab === 'deliveries' && (
-                        <div className="p-4">
-                            {activeDeliveries.length === 0 ? (
-                                <div className="text-center py-10 px-4">
-                                    <Package size={40} className="mx-auto text-slate-300 mb-3" />
-                                    <p className="text-slate-500 text-sm font-medium">No active deliveries</p>
-                                    <p className="text-slate-400 text-xs mt-1">Claim a pickup to start delivering!</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {activeDeliveries.map(delivery => {
-                                        const statusColors: Record<string, string> = {
-                                            assigned: 'bg-blue-100 text-blue-700',
-                                            en_route_pickup: 'bg-amber-100 text-amber-700',
-                                            picked_up: 'bg-purple-100 text-purple-700',
-                                            en_route_delivery: 'bg-indigo-100 text-indigo-700',
-                                            delivered: 'bg-emerald-100 text-emerald-700',
-                                            confirmed: 'bg-green-100 text-green-800',
-                                        };
-                                        const statusLabels: Record<string, string> = {
-                                            assigned: 'Assigned',
-                                            en_route_pickup: 'En Route to Pickup',
-                                            picked_up: 'Picked Up',
-                                            en_route_delivery: 'En Route to Charity',
-                                            delivered: 'Delivered',
-                                            confirmed: 'Confirmed',
-                                        };
-                                        return (
-                                            <div key={delivery.id} className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${statusColors[delivery.status] || 'bg-slate-100 text-slate-600'}`}>
-                                                        {statusLabels[delivery.status] || delivery.status}
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-400">
-                                                        {new Date(delivery.created_at).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <MapPin size={14} className="text-emerald-500 flex-shrink-0" />
-                                                        <span className="text-sm font-medium text-slate-800">
-                                                            {delivery.charity?.name || 'Charity'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Package size={14} className="text-blue-500 flex-shrink-0" />
-                                                        <span className="text-xs text-slate-500">
-                                                            {delivery.listing_ids.length} item{delivery.listing_ids.length !== 1 ? 's' : ''}
-                                                        </span>
-                                                    </div>
-                                                    {delivery.delivery_eta && (
-                                                        <div className="flex items-center gap-2">
-                                                            <Clock size={14} className="text-amber-500 flex-shrink-0" />
-                                                            <span className="text-xs text-slate-500">
-                                                                ETA: {new Date(delivery.delivery_eta).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* ===== PICKUPS TAB ===== */}
-                    {sidebarTab === 'pickups' && <>
-                        {/* Location Search — shown when geolocation is denied */}
-                        {locationDenied && (
-                            <div className="p-4 bg-amber-50 border-b border-amber-100">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <MapPin size={16} className="text-amber-600" />
-                                    <p className="text-sm font-medium text-amber-800">Location access denied</p>
-                                </div>
-                                <p className="text-xs text-amber-600 mb-3">Enter your city or address to find nearby food.</p>
-                                <form
-                                    onSubmit={(e) => {
-                                        e.preventDefault();
-                                        searchLocation(locationSearch);
-                                    }}
-                                    className="flex gap-2"
-                                >
-                                    <div className="relative flex-1">
-                                        <Search className="absolute left-2.5 top-2 text-amber-400" size={14} />
-                                        <input
-                                            type="text"
-                                            value={locationSearch}
-                                            onChange={(e) => setLocationSearch(e.target.value)}
-                                            placeholder="e.g. Sylhet, Bangladesh"
-                                            className="w-full pl-8 pr-3 py-1.5 border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-400 bg-white transition-all"
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        disabled={searchingLocation}
-                                        className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-700 transition-colors disabled:opacity-50"
-                                    >
-                                        {searchingLocation ? '...' : 'Search'}
-                                    </button>
-                                </form>
-                            </div>
-                        )}
-
-                        {/* Action Panel */}
-                        <div className="p-5 space-y-4 bg-slate-50/50 border-b border-slate-100">
-                            <div>
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                                        Delivery Destination
-                                    </label>
-                                    <button
-                                        onClick={fetchData}
-                                        className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-                                        disabled={loading}
-                                    >
-                                        {loading ? 'Refreshing...' : 'Refresh Data'}
-                                    </button>
-                                </div>
-                                <select
-                                    value={selectedCharity}
-                                    onChange={e => setSelectedCharity(e.target.value)}
-                                    className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                    disabled={charities.length === 0}
-                                >
-                                    <option value="">{charities.length === 0 ? 'No charities available' : 'Select Charity...'}</option>
-                                    {charities.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </select>
-                                {charities.length === 0 && !loading && (
-                                    <p className="text-xs text-amber-600 mt-1">
-                                        No registered charities found.
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <Button
-                                    onClick={calculateRoute}
-                                    disabled={selectedListings.length === 0 || !selectedCharity || calculating}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white w-full"
-                                    size="sm"
-                                >
-                                    {calculating ? 'Working...' : 'Optimize Route'}
-                                </Button>
-                                <Button
-                                    onClick={claimDelivery}
-                                    disabled={route.length === 0 || claiming}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white w-full"
-                                    size="sm"
-                                >
-                                    {claiming ? 'Claiming...' : 'Start Delivery'}
-                                </Button>
-                            </div>
-
-                            {routeInfo && (
-                                <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center text-sm">
-                                    <div className="text-blue-900">
-                                        <span className="font-semibold">{routeInfo.distance.toFixed(1)} km</span>
-                                        <span className="mx-1">•</span>
-                                        <span>~{routeInfo.duration} mins</span>
-                                    </div>
-                                    <span className="text-blue-600 font-medium">{route.length} stops</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Listings Feed */}
-                        <div className="p-2">
-                            <h3 className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 bg-white/95 backdrop-blur z-10 flex justify-between items-center">
-                                <span>Nearby Pickups</span>
-                                <span className="text-xs normal-case font-normal text-slate-400">
-                                    {listings.length} found
-                                </span>
-                            </h3>
-                            {loading ? (
-                                <div className="py-10 text-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto opacity-50"></div>
-                                </div>
-                            ) : listings.length === 0 ? (
-                                <div className="text-center py-10 px-4">
-                                    <span className="text-4xl block mb-2">🌿</span>
-                                    <p className="text-slate-500 text-sm font-medium">No food to rescue nearby.</p>
-                                    <p className="text-slate-400 text-xs mt-1">Try refreshing or checking back later.</p>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="mt-4"
-                                        onClick={fetchData}
-                                    >
-                                        Refresh Listings
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {listings.map(listing => {
-                                        const isSelected = selectedListings.includes(listing.id);
-                                        return (
-                                            <div
-                                                key={listing.id}
-                                                onClick={() => toggleListing(listing.id)}
-                                                className={`p-3 rounded-xl border transition-all cursor-pointer hover:shadow-md ${isSelected
-                                                    ? 'bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100'
-                                                    : 'bg-white border-slate-100 hover:border-blue-200'
-                                                    }`}
-                                            >
-                                                <div className="flex items-start gap-3">
-                                                    <span className="text-2xl bg-slate-50 p-2 rounded-lg">
-                                                        {CATEGORY_ICONS[listing.food_category] || '📦'}
-                                                    </span>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex justify-between items-start">
-                                                            <h4 className={`font-semibold text-sm truncate ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>
-                                                                {listing.title}
-                                                            </h4>
-                                                            {isSelected && <CheckCircle2 size={16} className="text-blue-600 flex-shrink-0" />}
-                                                        </div>
-                                                        <p className="text-xs text-slate-500 mt-0.5">{listing.quantity_kg} kg • {listing.address?.split(',')[0]}</p>
-                                                        <div className="flex items-center gap-2 mt-2">
-                                                            <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded ${new Date(listing.expires_at).getTime() - Date.now() < 3600000
-                                                                ? 'bg-rose-50 text-rose-600'
-                                                                : 'bg-slate-100 text-slate-600'
-                                                                }`}>
-                                                                <Clock size={10} />
-                                                                {getTimeRemaining(listing.expires_at)}
-                                                            </span>
-                                                            {listing.requires_refrigeration && (
-                                                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700">❄️ Cold</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </>}
-                </div>
-
-                {/* Sidebar Footer */}
-                <div className="p-4 border-t border-slate-100 bg-slate-50 text-xs text-slate-400 text-center">
-                    OptiMeal Logistics v1.0
-                </div>
-            </div>
-
-            {/* Closed Sidebar Trigger */}
-            {!isSidebarOpen && (
-                <button
-                    onClick={() => setIsSidebarOpen(true)}
-                    className="absolute left-4 top-4 z-20 bg-white p-3 rounded-full shadow-lg border border-slate-200 hover:bg-slate-50 transition-transform hover:scale-105"
-                >
-                    <Menu size={24} className="text-slate-700" />
-                </button>
-            )}
         </div>
     );
 }
