@@ -12,6 +12,7 @@ import { User, UserRole, PlatformStats, ImpactSummary, LeaderboardEntry } from '
 const OverviewCharts = dynamic(() => import('@/components/admin/OverviewCharts'), { ssr: false });
 const ListingsManager = dynamic(() => import('@/components/admin/ListingsManager'), { ssr: false });
 const DeliveriesManager = dynamic(() => import('@/components/admin/DeliveriesManager'), { ssr: false });
+const UsersManager = dynamic(() => import('@/components/admin/UsersManager'), { ssr: false });
 
 // Tab component
 function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -239,81 +240,7 @@ export default function AdminPage() {
                                 </div>
                             </div>
                         ) : activeTab === 'users' ? (
-                            <div className="space-y-6 animate-in fade-in duration-300">
-                                {/* Filters */}
-                                <div className="flex flex-wrap gap-4 items-center justify-between">
-                                    <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
-                                        {(['all', 'volunteer', 'charity', 'donor'] as const).map(role => (
-                                            <button
-                                                key={role}
-                                                onClick={() => setUserFilter(role)}
-                                                className={`px-4 py-2 rounded-md text-xs font-bold uppercase transition-all ${userFilter === role
-                                                    ? 'bg-white text-emerald-600 shadow-sm'
-                                                    : 'text-slate-500 hover:text-slate-700'
-                                                    }`}
-                                            >
-                                                {role}s
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <input
-                                        type="text"
-                                        placeholder="Search users..."
-                                        value={userSearch}
-                                        onChange={(e) => setUserSearch(e.target.value)}
-                                        className="px-4 py-2 border border-slate-200 rounded-lg text-sm w-full md:w-64 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                                    />
-                                </div>
-
-                                {/* Users Table */}
-                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                    <table className="w-full">
-                                        <thead className="bg-slate-50 border-b border-slate-100">
-                                            <tr>
-                                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">User</th>
-                                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Role</th>
-                                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Score</th>
-                                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {filteredUsers.map(user => (
-                                                <tr key={user.id} className="hover:bg-slate-50/50">
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 overflow-hidden">
-                                                                {user.image_url ? <img src={user.image_url} alt="" /> : user.name.charAt(0)}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-bold text-slate-900 text-sm">{user.name}</p>
-                                                                <p className="text-xs text-slate-500">{user.email}</p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${getRoleBadge(user.role)}`}>
-                                                            {user.role}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={`flex items-center gap-1.5 text-xs font-medium ${user.is_available ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                            <div className={`w-1.5 h-1.5 rounded-full ${user.is_available ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                                                            {user.is_available ? 'Online' : 'Offline'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className="text-sm font-bold text-slate-700">{user.reliability_score?.toFixed(0) || '-'}%</span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        <Button variant="ghost" size="sm" className="h-8 text-slate-400 hover:text-emerald-600">Edit</Button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                            <UsersManager />
                         ) : activeTab === 'listings' ? (
                             <ListingsManager />
                         ) : (

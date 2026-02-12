@@ -12,44 +12,60 @@ export default function ListingsManager() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [deleteId, setDeleteId] = useState<string | null>(null); // State for delete modal
     const { success, error } = useToast();
 
     const fetchListings = async () => {
         setLoading(true);
         try {
-            // Fetch all listings (assuming API supports pagination or returns all for admin)
-            // If getNearby is only option, we might need a specific admin endpoint, 
-            // but let's try getNearby with a huge radius or just check if getAll exists as per api.ts
-            const data = await listingsApi.getAll({ page_size: 100 }) as any;
+            // Fetch listings based on the selected filter
+            // If filter is 'all', we pass undefined to get everything (assuming API supports it or returns default)
+            // If API defaults to 'available', we might need to handle 'all' differently if we want everything
+            // But usually APIs either return all or default to available. 
+            // Let's try passing the status if it's not 'all'.
+            const params: any = { page_size: 100 };
+            if (statusFilter !== 'all') {
+                params.status = statusFilter;
+            }
+
+            const data = await listingsApi.getAll(params) as any;
             // Handle pagination response or array
             setListings(Array.isArray(data) ? data : data.items || []);
         } catch (err) {
             console.error(err);
+            error('Load Failed', 'Could not load listings.');
         } finally {
             setLoading(false);
         }
     };
 
+    // Refetch when filter changes
     useEffect(() => {
         fetchListings();
-    }, []);
+    }, [statusFilter]);
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this listing? This cannot be undone.')) return;
+    const confirmDelete = (id: string) => {
+        setDeleteId(id);
+    };
+
+    const handleDelete = async () => {
+        if (!deleteId) return;
         try {
-            await listingsApi.delete(id);
+            await listingsApi.delete(deleteId);
             success('Listing Deleted', 'The listing has been removed.');
             fetchListings();
         } catch (err) {
             error('Delete Failed', 'Could not delete listing.');
+        } finally {
+            setDeleteId(null);
         }
     };
 
+    // Client-side search filtering only (status is handled by API now)
     const filtered = listings.filter(l => {
         const matchesSearch = l.title.toLowerCase().includes(search.toLowerCase()) ||
             (l.address || '').toLowerCase().includes(search.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || l.status === statusFilter;
-        return matchesSearch && matchesStatus;
+        return matchesSearch;
     });
 
     const getStatusColor = (status: string) => {
@@ -64,7 +80,7 @@ export default function ListingsManager() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
             {/* Toolbar */}
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="relative w-full md:w-96">
@@ -112,8 +128,10 @@ export default function ListingsManager() {
                             ) : filtered.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="p-12 text-center">
-                                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">📦</div>
-                                        <p className="text-slate-500 font-medium">No listings found</p>
+                                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                                            {statusFilter === 'all' || statusFilter === 'available' ? '📦' : statusFilter === 'expired' ? '⚠️' : '📭'}
+                                        </div>
+                                        <p className="text-slate-500 font-medium">No {statusFilter !== 'all' ? statusFilter : ''} listings found</p>
                                     </td>
                                 </tr>
                             ) : (
@@ -151,7 +169,7 @@ export default function ListingsManager() {
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <button
-                                                    onClick={() => handleDelete(l.id)}
+                                                    onClick={() => confirmDelete(l.id)}
                                                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                     title="Delete Listing"
                                                 >
@@ -166,6 +184,29 @@ export default function ListingsManager() {
                     </table>
                 </div>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden p-6 text-center">
+                        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+                            <AlertCircle size={24} />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-2">Delete Listing?</h3>
+                        <p className="text-slate-500 text-sm mb-6">
+                            Are you sure you want to delete this listing? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3 justify-center">
+                            <Button variant="outline" onClick={() => setDeleteId(null)}>
+                                Cancel
+                            </Button>
+                            <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleDelete}>
+                                Delete Listing
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
