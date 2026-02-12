@@ -216,6 +216,7 @@ async def create_delivery(
         )
         
         db.add(delivery)
+        await db.flush()  # Generate delivery.id before using it for route_assignment
         
         # Update listings status
         for listing in listings:
