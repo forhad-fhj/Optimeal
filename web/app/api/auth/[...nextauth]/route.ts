@@ -12,7 +12,7 @@ const handler = NextAuth({
     ],
     secret: process.env.NEXTAUTH_SECRET || "secret",
     callbacks: {
-        async jwt({ token, user, account }) {
+        async jwt({ token, user, account, trigger, session }) {
             if (user && account) {
                 try {
                     // Sync user with backend on sign in
@@ -31,6 +31,13 @@ const handler = NextAuth({
                     console.error("Error syncing user:", error);
                 }
             }
+
+            // Handle client-side session updates (e.g. after onboarding)
+            if (trigger === "update" && session?.user) {
+                token.role = session.user.role;
+                if (session.user.id) token.id = session.user.id;
+            }
+
             return token;
         },
         async session({ session, token }) {
