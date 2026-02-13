@@ -11,6 +11,7 @@
 ---
 
 ## 🚀 Live Application
+
 Access the platform here: **[https://optimeal-amber.vercel.app/](https://optimeal-amber.vercel.app/)**
 
 ---
@@ -18,6 +19,7 @@ Access the platform here: **[https://optimeal-amber.vercel.app/](https://optimea
 ## 📖 Overview
 
 **OptiMeal** tackles the dual challenge of food waste and hunger by creating a seamless digital infrastructure for food rescue. Our platform empowers:
+
 - **Donors** (Restaurants, Grocers) to list surplus food in seconds.
 - **Volunteers** to find efficient rescue routes and track deliveries in real-time.
 - **Charities** to receive notifications and manage incoming donations.
@@ -27,11 +29,13 @@ By optimizing the "last mile" of food rescue, we ensure fresh food reaches those
 ### ✨ Key Features
 
 | Feature | Description |
-|---------|-------------|
+| :--- | :--- |
 | **🍎 Real-time Listings** | Instant food availability updates with expiration tracking. |
 | **📍 Smart Logistics** | Geospatial search helps volunteers find closest pickups. |
+| **🏆 Gamification** | Earn badges (e.g., "Eco Warrior"), track streaks, and level up your impact. |
+| **🛡️ Admin 2.0** | Comprehensive dashboard with live analytics, user management, and moderation tools. |
+| **🚀 Onboarding** | Streamlined setup flow collecting role, phone, and address for all users. |
 | **📊 Impact Analytics** | Visualize kgs saved, meals provided, and CO₂ reduction. |
-| **🛡️ Role-Based Access** | Dedicated dashboards for Donors, Volunteers, and Charities. |
 | **📱 Mobile First** | Fully responsive design for volunteers on the go. |
 
 ---
@@ -39,6 +43,7 @@ By optimizing the "last mile" of food rescue, we ensure fresh food reaches those
 ## 🛠 Tech Architecture
 
 ### **Frontend Client**
+
 - **Framework**: `Next.js 14` (App Router, Server Components)
 - **Styling**: `Tailwind CSS`, `Shadcn UI`, `Lucide Icons`
 - **State**: `React Query` (TanStack), `Zustand`
@@ -46,6 +51,7 @@ By optimizing the "last mile" of food rescue, we ensure fresh food reaches those
 - **Auth**: `NextAuth.js` (Google OAuth)
 
 ### **Backend API**
+
 - **Core**: `FastAPI` (High-performance Python framework)
 - **Database**: `PostgreSQL` with `PostGIS` (Spatial extensions)
 - **ORM**: `SQLAlchemy` (Async)
@@ -57,39 +63,49 @@ By optimizing the "last mile" of food rescue, we ensure fresh food reaches those
 ## ⚡ Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
 - Python 3.10+
 - PostgreSQL (or Access to Neon/Supabase)
 
 ### 1. Clone & Install
+
 ```bash
 git clone https://github.com/yourusername/optimeal.git
 cd optimeal
 ```
 
 ### 2. Backend Setup
+
 ```bash
 cd api
 python -m venv venv
 # Windows: .\venv\Scripts\activate | Mac/Linux: source venv/bin/activate
 pip install -r requirements.txt
 ```
+
 Create `.env` in `api/`:
+
 ```env
 DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/optimeal
 ALLOWED_ORIGINS=http://localhost:3000
 ```
+
 Run Server:
+
 ```bash
 uvicorn main:app --reload
 ```
 
 ### 3. Frontend Setup
+
 ```bash
 cd ../web
 npm install
 ```
+
 Create `.env.local` in `web/`:
+
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXTAUTH_URL=http://localhost:3000
@@ -97,23 +113,32 @@ NEXTAUTH_SECRET=your_secret_key
 GOOGLE_CLIENT_ID=your_google_id
 GOOGLE_CLIENT_SECRET=your_google_secret
 ```
+
 Run Client:
+
 ```bash
 npm run dev
 ```
+
 Visit `http://localhost:3000` to see the app!
 
 ---
 
 ## 🔮 Roadmap
+
+- [x] **Gamification**: Badges, Leaderboards, and User Levels.
+- [x] **Admin Dashboard**: Advanced metrics and user management.
+- [x] **Responsive Onboarding**: Mobile-friendly profile setup.
+- [x] **Smart Location**: Auto-detect and address geocoding.
 - [ ] **AI Route Optimization**: Integrate NetworkX for multi-stop route planning.
 - [ ] **Push Notifications**: Real-time alerts for urgent rescues.
-- [ ] **Charity Inventory**: Better tracking of received goods.
 
 ---
 
 ## 🤝 Contribution
-Open to contributions! Please fork the repo and submit a PR. 
+
+Open to contributions! Please fork the repo and submit a PR.
 
 ## 📄 License
+
 MIT License © 2026 OptiMeal Team
