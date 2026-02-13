@@ -25,9 +25,9 @@ export function useAuthSync() {
                     console.log('User synced:', user);
 
                     // Onboarding Check
-                    // If phone is missing, force onboarding
+                    // If phone is missing, force onboarding (except for admins)
                     // Skip if already on the onboarding page to avoid loops
-                    if (!user.phone && pathname !== '/onboarding') {
+                    if (!user.phone && pathname !== '/onboarding' && user.role !== 'admin') {
                         router.push('/onboarding');
                     }
                 } catch (error) {
