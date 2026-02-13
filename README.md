@@ -4,7 +4,7 @@
 > Bridging the gap between food surplus and community needs through intelligent logistics.
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Visit_OptiMeal-2ecc71?style=for-the-badge&logo=vercel)](https://optimeal-amber.vercel.app/)
-[![Frontend](https://img.shields.io/badge/Frontend-Next.js_14-000000?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Frontend](https://img.shields.io/badge/Frontend-Next.js_16-000000?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![Backend](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Database](https://img.shields.io/badge/Database-PostgreSQL-336791?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
 
@@ -44,7 +44,7 @@ By optimizing the "last mile" of food rescue, we ensure fresh food reaches those
 
 ### **Frontend Client**
 
-- **Framework**: `Next.js 14` (App Router, Server Components)
+- **Framework**: `Next.js 16` (App Router, Server Components)
 - **Styling**: `Tailwind CSS`, `Shadcn UI`, `Lucide Icons`
 - **State**: `React Query` (TanStack), `Zustand`
 - **Maps**: `Leaflet`, `React-Leaflet`
